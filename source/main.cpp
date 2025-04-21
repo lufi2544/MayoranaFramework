@@ -4,9 +4,18 @@
 
 int main (int, char**)
 {
-    printf("Hello all ! \n");
     
+    Mayorana_Framework_Init();
     
+    {
+        temp_arena_t temp;
+        
+        char *buffer = push_size(char, temp.arena, sizeof(char) * 6);
+        snprintf(buffer, 6, "Hello");
+        
+        printf("%s \n", buffer);
+        
+    }
     
 	return 0;
 }

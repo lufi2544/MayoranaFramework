@@ -81,8 +81,11 @@ Mayorana_Init_Memory()
     
     g_memory.transient_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);
     
+    g_memory.transient_memory.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
+    
     g_memory.permanent_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);
     
+    g_memory.permanent_memory.size = MAYORANA_MEMORY_PERMANENT_SIZE;
 #endif // __APPLE__
 }
 
@@ -101,13 +104,11 @@ struct temp_arena_t
 {
     temp_arena_t(bool _bStack = true)
     {
-        memory_arena_t _arena = g_memory.transient_memory; 
-        
-        arena = &_arena;
-        cached_parent_used = _arena.used;
+        arena = &g_memory.transient_memory;
+        cached_parent_used = arena->used;
         bStack = _bStack;
         
-        _arena.temp_count++;
+        arena->temp_count++;
     }
     
     ~temp_arena_t()
@@ -129,10 +130,11 @@ _temp_arena_end(temp_arena_t *_arena)
 {
     _arena->arena->temp_count--;
     _arena->arena->used = _arena->cached_parent_used;
+    
 }
 
 word_t 
-push_size(memory_arena_t *_arena, u64 _size)
+_push_size(memory_arena_t *_arena, u64 _size)
 {
     if(_arena->used + _size > _arena->size)
     {
@@ -150,3 +152,4 @@ push_size(memory_arena_t *_arena, u64 _size)
 
 
 
+#define push_size(t, a, s) (t*)_push_size(a, s)
