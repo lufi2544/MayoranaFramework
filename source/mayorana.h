@@ -173,4 +173,117 @@ _push_size(arena_t *_arena, u64 _size)
 
 
 
-#define push_size(t, a, s) (t*)_push_size(a, s)
+#define push_struct(arena, type) (type*)_push_size(arena, sizeof(type))
+#define push_array(arena, count, type) (type*)_push_size(arena, (count) * sizeof(type))
+#define push_size(arena, size) _push_size(arena, size)
+
+
+/////////////////////////////////////////////
+/////////// DATA STRUCTURES ////////////////
+
+
+///// LINKED LIST IMPLEMENTATION /////
+
+
+// TODO Make iterator for the list
+typedef struct list_node_t
+{
+	void *data;
+	u32 index;
+	struct list_node_t *next_sibling;
+	
+} list_node_t;
+
+typedef struct
+{		
+	list_node_t *head;
+	u32 size;
+} list_t;
+
+
+internal_f list_node_t*
+list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size);
+
+internal_f list_t 
+make_list(arena_t *_arena, void* _data);
+
+
+#define LIST_ADD(arena, list, data, type) list_add_element(arena, &list, &data, sizeof(type))
+#define LIST(arena) make_list(arena, 0)
+#define LIST_NODE_DATA(list_node, type) (type*)list_node->data
+
+
+
+internal_f list_t 
+make_list(arena_t *_arena, void* _data)
+{
+	list_t result;	
+	result.size = 0;	
+	result.head = 0;
+	
+	if(_data)
+	{
+		list_node_t *node = push_struct(_arena, list_node_t);
+		
+		if(node)
+		{
+			result.head = node;
+			result.size++;
+		}
+	}
+	
+	return result;
+}
+
+
+internal_f list_node_t*
+list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
+{
+	if(_data == 0)
+	{
+		return 0;
+	}
+	
+	if(_list)
+	{
+		list_node_t *node = push_struct(_arena, list_node_t);
+		void *node_data = push_size(_arena, _size);
+		node->data = node_data;
+		node->next_sibling = 0;
+		node->index = _list->size;
+		
+		if(node_data == 0)
+		{
+			return 0;
+		}
+		
+		// note: (juanes.rayo): Moving this to a .c file to use as raw copy of bytes.
+		u8 *data_as_bytes = (u8*)_data;
+		u8 *node_data_as_bytes = (u8*)node_data;
+		for(u32 i = 0; i < _size; ++i)
+		{
+			node_data_as_bytes[i] = data_as_bytes[i];
+		}
+		
+		if(node)
+		{
+			if(!_list->head)
+			{
+				_list->head = node;
+			}
+			else
+			{
+				list_node_t *prev_head = _list->head;
+				node->next_sibling = prev_head;
+				_list->head = node;
+			}
+			
+			_list->size++;
+		}
+		
+		return node;
+	}
+	
+	return 0;
+	
+}
