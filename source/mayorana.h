@@ -53,7 +53,7 @@ typedef double f64;
 #define Kilobyte(v) 1024 * Megabyte(v)
 #define Gigabyte(v) 1024 * Kilobyte(v)
 
-struct memory_arena_t
+struct arena_t
 {
     u8* data;
     u64 used;
@@ -63,8 +63,8 @@ struct memory_arena_t
 
 struct memory_t 
 {
-    memory_arena_t transient_memory;
-    memory_arena_t permanent_memory;
+    arena_t transient_memory;
+    arena_t permanent_memory;
     
 } g_memory;
 
@@ -141,7 +141,7 @@ struct scratch_t
         }
     }
     
-    memory_arena_t *arena;
+    arena_t *arena;
     u64 cached_parent_used;
     bool bStack;
 };
@@ -155,7 +155,7 @@ _scratch_end(scratch_t *_arena)
 }
 
 word_t 
-_push_size(memory_arena_t *_arena, u64 _size)
+_push_size(arena_t *_arena, u64 _size)
 {
     if(_arena->used + _size > _arena->size)
     {
