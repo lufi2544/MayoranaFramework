@@ -19,7 +19,7 @@ SOURCE_DIR="source"
 SOURCE_FILE="source/main.cpp"
 
 # Create an output directory for the executable
-OUTPUT_DIR="./build"
+OUTPUT_DIR="./bin"
 mkdir -p $OUTPUT_DIR
 
 # Compile the source file into an object file

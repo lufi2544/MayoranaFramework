@@ -43,6 +43,10 @@ typedef double f64;
 #include <unistd.h>
 #endif // __APPLE__
 
+#ifdef _WIN32
+#include "Windows.h"
+#endif // _WIN32
+
 
 #define Byte(v) v
 #define Megabyte(v) 1024 * Byte(v)
@@ -73,36 +77,53 @@ struct memory_t
 #endif // MAYORANA_MEMORY_PERMANENT_SIZE
 
 
-void
-Mayorana_Init_Memory()
-{
-    // TODO crate per platform 
-#ifdef __APPLE__
-    
-    g_memory.transient_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);
-    
-    g_memory.transient_memory.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
-    
-    g_memory.permanent_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);
-    
-    g_memory.permanent_memory.size = MAYORANA_MEMORY_PERMANENT_SIZE;
-#endif // __APPLE__
-}
+void Mayorana_Init_Memory();
 
 void
 Mayorana_Framework_Init()
 {
+	printf("----Mayorana Init----\n");
     Mayorana_Init_Memory();
 }
 
-struct temp_arena_t;
+void
+Mayorana_Init_Memory()
+{
+	// TODO crate per platform 
+	
+#ifdef __APPLE__    
+    g_memory.transient_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);   
+    g_memory.permanent_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);    
+	
+	printf("-- Mayorana Memory Init MacOS-- \n");
+#endif // __APPLE__
+	
+#ifdef _WIN32
+	g_memory.transient_memory.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	g_memory.permanent_memory.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	
+	printf("-- Mayorana Memory Init Windows -- \n");
+#endif // _WIN32
+	
+	
+	g_memory.transient_memory.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
+    g_memory.permanent_memory.size = MAYORANA_MEMORY_PERMANENT_SIZE;
+	
+	printf("Memory props: \n   Arena transient: %llu \n   Arena permanent: %llu \n", g_memory.transient_memory.size, g_memory.permanent_memory.size);
+	
+}
+
+struct scratch_t;
 
 void
-_temp_arena_end(temp_arena_t *_arena);
+_scratch_end(scratch_t *_arena);
 
-struct temp_arena_t
+/** Definition of a Temp Arena.
+ *(juanes.rayo): just using the same name 4ed uses, for simplicity when using it along the code. 
+ */
+struct scratch_t
 {
-    temp_arena_t(bool _bStack = true)
+    scratch_t(bool _bStack = true)
     {
         arena = &g_memory.transient_memory;
         cached_parent_used = arena->used;
@@ -111,12 +132,12 @@ struct temp_arena_t
         arena->temp_count++;
     }
     
-    ~temp_arena_t()
+    ~scratch_t()
     {
         // just a tem arena that is eneded upon stack end.
         if(bStack)
         {
-            _temp_arena_end(this);
+            _scratch_end(this);
         }
     }
     
@@ -126,7 +147,7 @@ struct temp_arena_t
 };
 
 void
-_temp_arena_end(temp_arena_t *_arena)
+_scratch_end(scratch_t *_arena)
 {
     _arena->arena->temp_count--;
     _arena->arena->used = _arena->cached_parent_used;

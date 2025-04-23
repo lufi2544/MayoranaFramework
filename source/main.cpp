@@ -5,10 +5,9 @@
 int main (int, char**)
 {
     
-    Mayorana_Framework_Init();
-    
+    Mayorana_Framework_Init();    
     {
-        temp_arena_t temp;
+        scratch_t temp;
         
         char *buffer = push_size(char, temp.arena, sizeof(char) * 6);
         snprintf(buffer, 6, "Hello");
