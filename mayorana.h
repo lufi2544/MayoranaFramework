@@ -39,7 +39,6 @@ typedef double f64;
 
 #define global static
 #define local static
-#define function_global static
 #define internal_f static
 
 #define ArrayCount(Array) sizeof(Array) / sizeof((Array)[0])
@@ -97,7 +96,7 @@ internal_f void Mayorana_Init_Memory();
 
 
 ////// Entroy point for the Framework. Must call when initializing the application.
-global_function void
+global void
 Mayorana_Framework_Init()
 {	
 	printf("----Mayorana Init----\n");
@@ -132,17 +131,17 @@ Mayorana_Init_Memory()
 }
 
 
-global_function void
+global void
 Mayorana_Framework_End()
 {
-	if(g_memory.permanent.base)
+	if(g_memory.permanent.data)
 	{
-		VirtualFree(g_memory.permanent.base, 0, MEM_RELEASE);
+		VirtualFree(g_memory.permanent.data, 0, MEM_RELEASE);
 	}
 	
-	if(g_memory.transient.base)
+	if(g_memory.transient.data)
 	{
-		VirtualFree(g_memory.transient.base, 0, MEM_RELEASE);
+		VirtualFree(g_memory.transient.data, 0, MEM_RELEASE);
 	}
 }
 
