@@ -7,7 +7,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+
+#ifndef __cplusplus
+// C++ includes
+
 #include <cstdint>
+
+#else
+// C includes
+#include <stdint.h>
+#include <stdbool.h>
+
+#endif // !__cplusplus
 
 typedef uint8_t u8;
 typedef uint16_t u16;
