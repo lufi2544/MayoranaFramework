@@ -3,10 +3,11 @@
 
 
 :: Set variables
-set SRC_DIR=../source
+set SRC_DIR=%~dp0
 set BIN_DIR=bin
 set CFLAGS=/std:c17 /Zi
 set MAIN_FILE=%SRC_DIR%/main.cpp
+set FLAGS=MAYORANA
 if not exist %BIN_DIR% mkdir %BIN_DIR%
 
 cd %BIN_DIR%
@@ -18,6 +19,6 @@ call "../setup_cl_x64.bat"
 
 :: Compile with MSVC
 :: Using Fe: in stead of OUT, since we are using unity build.
-cl /Fe:MayoranaFramework %CFLAGS% -I%SRC_DIR% %MAIN_FILE% /link /SUBSYSTEM:CONSOLE /nologo
+cl /Fe:MayoranaFramework %CFLAGS% -I%SRC_DIR% %MAIN_FILE% -D%FLAGS% /link /SUBSYSTEM:CONSOLE /nologo
 
 
