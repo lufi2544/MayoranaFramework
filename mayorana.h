@@ -136,7 +136,7 @@ struct scratch_t;
 #ifdef __cplusplus
 extern "C" {
 #endif
-	internal_f void _scratch_end(scratch_t *scratch);	
+	internal_f void _scratch_end(struct scratch_t *scratch);	
 #ifdef __cplusplus
 }
 #endif
