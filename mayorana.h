@@ -97,7 +97,7 @@ internal_f void Mayorana_Init_Memory();
 
 
 ////// Entroy point for the Framework. Must call when initializing the application.
-internal_f void
+global_function void
 Mayorana_Framework_Init()
 {	
 	printf("----Mayorana Init----\n");
@@ -130,6 +130,23 @@ Mayorana_Init_Memory()
 	printf("Memory props: \n   Arena transient: %llu \n   Arena permanent: %llu \n", g_memory.transient.size, g_memory.permanent.size);
 	
 }
+
+
+global_function void
+Mayorana_Framework_End()
+{
+	if(g_memory.permanent.base)
+	{
+		VirtualFree(g_memory.permanent.base, 0, MEM_RELEASE);
+	}
+	
+	if(g_memory.transient.base)
+	{
+		VirtualFree(g_memory.transient.base, 0, MEM_RELEASE);
+	}
+}
+
+
 
 struct scratch_t;
 
