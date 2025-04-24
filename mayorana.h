@@ -9,14 +9,14 @@
 #include <assert.h>
 
 #ifndef __cplusplus
-// C++ includes
 
-#include <cstdint>
-
-#else
 // C includes
 #include <stdint.h>
 #include <stdbool.h>
+
+#else
+// C++ includes
+#include <cstdint>
 
 #endif // !__cplusplus
 
