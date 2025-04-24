@@ -59,9 +59,9 @@ typedef double f64;
 
 
 #define Byte(v) v
-#define Megabyte(v) 1024 * Byte(v)
-#define Kilobyte(v) 1024 * Megabyte(v)
-#define Gigabyte(v) 1024 * Kilobyte(v)
+#define Kilobyte(v) 1024 * Byte(v)
+#define Megabyte(v) 1024 * Kilobyte(v)
+#define Gigabyte(v) 1024 * Megabyte(v)
 
 typedef struct arena_t
 {
@@ -106,20 +106,20 @@ Mayorana_Framework_Init()
 internal_f void
 Mayorana_Init_Memory()
 {
-	// TODO crate per platform 
 	
+	printf("--- MAYORANA MEMORY --- \n");
 #ifdef __APPLE__    
     g_memory.transient.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);   
     g_memory.permanent.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);    
 	
-	printf("-- Mayorana Memory Init MacOS-- \n");
+	printf("-- Memory Init MacOS-- \n");
 #endif // __APPLE__
 	
 #ifdef _WIN32
 	g_memory.transient.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.permanent.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	
-	printf("-- Mayorana Memory Init Windows -- \n");
+	printf("-- Memory Init Windows -- \n");
 #endif // _WIN32
 	
 	
@@ -127,6 +127,8 @@ Mayorana_Init_Memory()
     g_memory.permanent.size = MAYORANA_MEMORY_PERMANENT_SIZE;
 	
 	printf("Memory props: \n   Arena transient: %llu \n   Arena permanent: %llu \n", g_memory.transient.size, g_memory.permanent.size);
+	
+	printf("----  ---- \n");
 	
 }
 
@@ -201,12 +203,12 @@ extern "C" {
 #endif //__cplusplus
 	
 	internal_f void
-		scratch_begin(scratch_t *scratch, bool bStack)
+		scratch_begin(scratch_t *_scratch, arena_t *_arena, bool _bStack)
 	{
-		scratch->arena = &g_memory.transient;
-		scratch->cached_parent_used = scratch->arena->used;
-		scratch->bStack = bStack;
-		scratch->arena->temp_count++;	
+		_scratch->arena = _arena;
+		_scratch->cached_parent_used = _scratch->arena->used;
+		_scratch->bStack = _bStack;
+		_scratch->arena->temp_count++;	
 	}
 	
 	internal_f void
@@ -240,7 +242,7 @@ _push_size(arena_t *_arena, u64 _size)
 {
     if(_arena->used + _size > _arena->size)
     {
-        fprintf(stderr, "Arena with size %llu trying to allocate %llu. Not enough space.", _arena->size, _size);
+        fprintf(stderr, "Arena with size %llu trying to allocate %llu. Not enough space. \n", _arena->size, _size);
         
         assert(false);
     }
@@ -268,7 +270,7 @@ arena_t* temp_arena = scratch.arena; \
 
 #define SCRATCH() \
 scratch_t scratch;       \
-scratch_begin(&scratch, true);    \
+scratch_begin(&scratch, &g_memory.transient, true);    \
 arena_t* temp_arena = scratch.arena; \
 
 #define SCRATCH_END() scratch_end(&scratch);
