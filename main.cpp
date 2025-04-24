@@ -14,22 +14,22 @@ int main (int, char**)
     
     Mayorana_Framework_Init();    
     {
-        scratch_t temp;
+		SCRATCH();
         
-        char *buffer = push_array(temp.arena, 6, char);
+        char *buffer = push_array(temp_arena, 6, char);
         snprintf(buffer, 6, "Hello");
         
         printf("%s \n", buffer);
 		
 		int name_size = 10;
-		char* animal_name_1 = push_array(temp.arena, name_size, char);
+		char* animal_name_1 = push_array(temp_arena, name_size, char);
 		snprintf(animal_name_1, name_size, "LOL");
 		
-		char* animal_name_2 = push_array(temp.arena, name_size, char);
+		char* animal_name_2 = push_array(temp_arena, name_size, char);
 		snprintf(animal_name_2, name_size, "LOLO");
 		
 		
-		list_t animal_list = LIST(temp.arena);
+		list_t animal_list = LIST(temp_arena);
 		
 		Animal a;
 		a.name = animal_name_1;
@@ -40,8 +40,8 @@ int main (int, char**)
 		b.type = 0;
 		
 		
-		LIST_ADD(temp.arena, animal_list, a, Animal);
-		LIST_ADD(temp.arena, animal_list, b, Animal);
+		LIST_ADD(temp_arena, animal_list, a, Animal);
+		LIST_ADD(temp_arena, animal_list, b, Animal);
 		
 		list_node_t* it = animal_list.head;
 		
@@ -50,9 +50,7 @@ int main (int, char**)
 			Animal* animal = LIST_NODE_DATA(it, Animal);
 			printf("Type: %i, name %s \n", animal->type, animal->name);
 			it = it->next_sibling;
-		}
-		
-        
+		}		        
     }
     
 	return 0;

@@ -35,7 +35,7 @@ typedef double f64;
 
 
 ////////////////////////////////////
-/////// Memory arena //////////////
+/////// MEMORY ARENA //////////////
 
 #ifdef __APPLE__
 #include <mach/mach.h>
@@ -65,8 +65,8 @@ typedef struct arena_t
 
 typedef struct memory_t 
 {
-    arena_t transient_memory;
-    arena_t permanent_memory;
+    arena_t transient;
+    arena_t permanent;
     
 } memory_t;
 
@@ -81,11 +81,14 @@ global memory_t g_memory;
 #endif // MAYORANA_MEMORY_PERMANENT_SIZE
 
 
+////// Forward declarations of Init function definitions
 internal_f void Mayorana_Init_Memory();
 
+
+////// Entroy point for the Framework. Must call when initializing the application.
 internal_f void
 Mayorana_Framework_Init()
-{
+{	
 	printf("----Mayorana Init----\n");
     Mayorana_Init_Memory();
 }
@@ -96,24 +99,24 @@ Mayorana_Init_Memory()
 	// TODO crate per platform 
 	
 #ifdef __APPLE__    
-    g_memory.transient_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);   
-    g_memory.permanent_memory.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);    
+    g_memory.transient.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);   
+    g_memory.permanent.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);    
 	
 	printf("-- Mayorana Memory Init MacOS-- \n");
 #endif // __APPLE__
 	
 #ifdef _WIN32
-	g_memory.transient_memory.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	g_memory.permanent_memory.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	g_memory.transient.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	g_memory.permanent.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	
 	printf("-- Mayorana Memory Init Windows -- \n");
 #endif // _WIN32
 	
 	
-	g_memory.transient_memory.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
-    g_memory.permanent_memory.size = MAYORANA_MEMORY_PERMANENT_SIZE;
+	g_memory.transient.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
+    g_memory.permanent.size = MAYORANA_MEMORY_PERMANENT_SIZE;
 	
-	printf("Memory props: \n   Arena transient: %llu \n   Arena permanent: %llu \n", g_memory.transient_memory.size, g_memory.permanent_memory.size);
+	printf("Memory props: \n   Arena transient: %llu \n   Arena permanent: %llu \n", g_memory.transient.size, g_memory.permanent.size);
 	
 }
 
@@ -128,12 +131,18 @@ extern "C" {
 #endif
 
 /** Definition of a Temp Arena.
- *(juanes.rayo): just using the same name 4ed uses, for simplicity when using it along the code. 
+ *  Can be used for scope pruposes or maybe out of the current scope.
+ *  (juanes.rayo): just using the same name 4ed uses, for simplicity when using it along the code. 
  */
 typedef struct scratch_t 
-{
+{	
+	/** Parent Memory Arena */
     arena_t* arena;
+	
+	/** Cached memory ptr from the parent arena when created this scratch, when ended, the parent arena is reset to this. */
     u64 cached_parent_used;
+	
+	/** If true, in C++ the scratch gets reset when destroyed */
     bool bStack;
 	
 #ifdef __cplusplus
@@ -142,7 +151,7 @@ typedef struct scratch_t
 	
     scratch_t(bool _bStack = true) 
 	{
-        arena = &g_memory.transient_memory;
+        arena = &g_memory.transient;
         cached_parent_used = arena->used;
         bStack = _bStack;
         arena->temp_count++;
@@ -150,7 +159,8 @@ typedef struct scratch_t
 	
     ~scratch_t() 
 	{
-        if (bStack) {
+        if (bStack) 
+		{
             _scratch_end(this);
         }
     }
@@ -166,7 +176,7 @@ extern "C" {
 	internal_f void
 		scratch_begin(scratch_t *scratch, bool bStack)
 	{
-		scratch->arena = &g_memory.transient_memory;
+		scratch->arena = &g_memory.transient;
 		scratch->cached_parent_used = scratch->arena->used;
 		scratch->bStack = bStack;
 		scratch->arena->temp_count++;	
@@ -174,11 +184,8 @@ extern "C" {
 	
 	internal_f void
 		scratch_end(scratch_t *scratch)
-	{
-		if(scratch->bStack)
-		{
-			_scratch_end(scratch);
-		}
+	{		
+		_scratch_end(scratch);		
 	}
 	
 	internal_f void
@@ -204,8 +211,7 @@ _push_size(arena_t *_arena, u64 _size)
         
         assert(false);
     }
-    
-    
+       
     u8* data = _arena->data + _arena->used;
     _arena->used += _size;
     
@@ -213,10 +219,28 @@ _push_size(arena_t *_arena, u64 _size)
 }
 
 
-
 #define push_struct(arena, type) (type*)_push_size(arena, sizeof(type))
 #define push_array(arena, count, type) (type*)_push_size(arena, (count) * sizeof(type))
 #define push_size(arena, size) _push_size(arena, size)
+
+#ifdef __cplusplus
+
+#define CONTROLLED_SCRATCH() \
+scratch_t scratch;       \
+scratch_begin(&scratch, false);    \
+arena_t* temp_arena = scratch.arena; \
+
+#endif // __cplusplus
+
+
+#define SCRATCH() \
+scratch_t scratch;       \
+scratch_begin(&scratch, true);    \
+arena_t* temp_arena = scratch.arena; \
+
+#define SCRATCH_END() scratch_end(temp_memory);
+
+
 
 
 /////////////////////////////////////////////
@@ -226,7 +250,7 @@ _push_size(arena_t *_arena, u64 _size)
 ///// LINKED LIST IMPLEMENTATION /////
 
 
-// TODO Make iterator for the list
+// TODO Make iterator for the list for C++
 typedef struct list_node_t
 {
 	void *data;
