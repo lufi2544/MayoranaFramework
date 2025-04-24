@@ -47,6 +47,9 @@ typedef double f64;
 ////////////////////////////////////
 /////// MEMORY ARENA //////////////
 
+// NOTE: PART
+
+
 #ifdef __APPLE__
 #include <mach/mach.h>
 #include <sys/mman.h>
@@ -280,6 +283,7 @@ arena_t* temp_arena = scratch.arena; \
 /////////////////////////////////////////////
 /////////// DATA STRUCTURES ////////////////
 
+// NOTE: PART
 
 ///// LINKED LIST IMPLEMENTATION /////
 
@@ -385,4 +389,345 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 	
 	return 0;
 	
+}
+
+
+//////////////////////////////
+/////// BUFFER //////////////
+
+//NOTE: PART 
+
+u32 cstr_len(const char* _str)
+{	
+	if(_str == 0)
+	{
+		return 0;
+	}
+	
+	u32 size = 0;
+	char ptr = ' ';
+	while(ptr != '\0')
+	{
+		ptr = _str[size];	
+		++size;
+	}
+	
+	return size - 1;
+}
+
+
+///// BUFFER FORWARD DECLARATIONS
+
+global bool buffer_is_equal(struct buffer_t a, struct buffer_t b);
+global bool buffer_is_equal_cstring(struct buffer_t a, const char* b);
+
+/////
+
+/** This acts as a memory container of data. */
+typedef struct buffer_t
+{
+    u8* bytes;
+    u32 size;
+	
+#ifdef __cplusplus
+    inline bool operator==(const buffer_t& other) const 
+	{
+        return buffer_is_equal(*this, other);
+    }
+	
+    inline bool operator!=(const buffer_t& other) const 
+	{
+        return !(*this == other);
+    }
+	
+    inline u8& operator[](u32 index) 
+	{
+        assert(index < size && "buffer_t index out of bounds");
+        return bytes[index];
+    }
+	
+    inline const u8& operator[](u32 index) const
+	{
+        assert(index < size && "buffer_t index out of bounds");
+        return bytes[index];
+    }
+#endif // __cplusplus
+	
+} buffer_t;
+
+
+global bool 
+is_in_bounds(buffer_t _buffer, u64 _at)
+{
+	b32 result = (_at < _buffer.size);
+	return result;
+}
+
+global buffer_t
+create_buffer(arena_t *_arena, u64 _size)
+{
+	buffer_t result = {0, 0};
+	if(!_size)
+	{
+		return result;
+	}	
+	
+	void* allocated_data  = push_size(_arena, _size);
+	if(allocated_data == 0)
+	{
+		return result;
+	}
+	
+	result.bytes = allocated_data;
+	result.size = _size;
+	
+	return result;
+}
+
+global buffer_t 
+create_buffer_string(arena_t *_arena, u32 _size)
+{
+	buffer_t result = create_buffer(_arena, _size);
+	u8 *bytes_as_u8 = (u8*)result.bytes;
+	bytes_as_u8[result.size - 1] = '\0';
+	
+	return result;
+}
+
+global bool 
+buffer_is_equal(buffer_t a, buffer_t b)
+{
+	if(a.size != b.size)
+	{
+		return false;
+	}
+	
+	for(u64 i = 0; i < a.size; ++i)
+	{
+		if(a.bytes[i] != b.bytes[i])
+		{
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+
+
+global bool 
+buffer_is_equal_cstring(buffer_t a, const char* b )
+{		
+	if((cstr_len(b) + 1) != a.size)
+	{
+		return false;
+	}
+	
+	for(u64 i = 0; i < a.size; ++i)
+	{
+		if(a.bytes[i] != b[i])
+		{
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+// With memory arena this is not needed.
+global void 
+free_buffer(buffer_t *_buffer)
+{
+	if(_buffer->bytes)
+	{		
+		_buffer->bytes = 0;
+	}	
+}
+
+
+
+
+//////////////////////////////////
+/////// STRING //////////////////
+
+
+
+typedef struct
+{
+    buffer_t buffer;
+    u32 len;
+	
+#ifdef __cplusplus	
+	
+    // Compare with C string
+    inline bool operator==(const char* other) const 
+	{
+        return buffer_is_equal_cstring(buffer, other);
+    }
+	
+    // Compare with another string_t
+    inline bool operator==(const string_t& other) const 
+	{
+        return buffer == other.buffer;
+    }
+	
+    // Char access
+    inline u8& operator[](u32 index) 
+	{
+        assert(index < len);
+        return buffer.bytes[index];
+    }
+	
+    inline const u8& operator[](u32 index) const 
+	{
+        assert(index < len);
+        return buffer.bytes[index];
+    }
+	
+    // Append character (like push_char)
+    inline void operator+=(char c) 
+	{
+        string_push_char(this, c);
+    }
+	
+    // Optional: Convert to const char*
+    inline operator const char*() const 
+	{
+        return (const char*)buffer.bytes;
+    }
+	
+#endif // __cplusplus
+	
+} string_t;
+
+
+#define DEFAULT_EMPTY_STRING_LEN 20
+
+
+/* Creates a string.
+* 1. _content is not empty, so string len will mach _contentlen.
+* 2. _content is not empty neither _len, then internal buffer will be _content size + _len + 1.
+* 3. _content is empty but string not _len, then internal buffer will be _len + 1.
+* 4. _content and _len are empty, then DEFAULT_EMPTY_STRING_LEN + 1 will be internal buffer size;
+*
+*/
+
+// string raw default len
+#define STRING(a) make_string(a, DEFAULT_EMPTY_STRING_LEN, 0)
+// string lenght 
+#define STRING_L(a, l) make_string(a, l, 0)
+// string verbal
+#define STRING_V(a, c) make_string(a, 0, c)
+// string verbal lenght, ready to be expanded
+#define STRING_VL(a, l, c) make_string(a, l, c)
+
+// string content macro
+#define STRING_CONTENT(s) (char*)s.buffer.bytes
+
+
+global string_t
+make_string(arena_t *_arena, u32 _len, const char* _content)
+{
+	string_t result;
+	u32 content_len = cstr_len(_content);
+	
+	u32 string_buffer_size = 0;
+	if(content_len > 0)
+	{				
+		string_buffer_size = (_len > 0) ? (content_len + _len) : (content_len);	
+	}
+	else
+	{
+		if(_len == 0)
+		{
+			_len = DEFAULT_EMPTY_STRING_LEN;
+		}
+		
+		string_buffer_size = _len;
+	}
+	
+	// null operator;
+	string_buffer_size += 1;
+	
+	buffer_t buffer_str = create_buffer_string(_arena, string_buffer_size);
+	
+	result.buffer = buffer_str;
+	result.len = 0;
+	
+	if(content_len > 0)
+	{
+		assert(content_len + 1 == buffer_str.size);
+		for(u32 i = 0; i < content_len; ++i)
+		{
+			buffer_str.bytes[i] = _content[i];
+		}		
+		
+		result.len = content_len;
+	}	
+	
+	return result;
+}
+
+
+
+global void
+string_push_char(string_t *_str, u8 character)
+{
+	if(_str == 0)
+	{
+		return;
+	}
+	
+	// if hit, then request more memory for this string buffer upon creation.
+	assert((_str->len + 1) < (_str->buffer.size));
+	
+    _str->buffer.bytes[_str->len++] = character;
+    _str->buffer.bytes[_str->len] = '\0';		
+}
+
+internal_f bool 
+is_equal_cstr(string_t *_str, const char* b)
+{
+	
+	return buffer_is_equal_cstring(_str->buffer, b);
+}
+
+internal_f bool 
+string_contains(string_t *_str, const char* b)
+{	
+	u32 c_str_len = cstr_len(b);
+	if((_str == 0) || (c_str_len == 0) || (_str->len < c_str_len))
+	{
+		return false;
+	}
+	
+	for(u32 i = 0; i < _str->len; ++i)
+	{
+		if(_str->buffer.bytes[i] == b[0])
+		{
+			bool bContains = true;
+			// start comparing potential string
+			for(u32 j = 1; j < c_str_len; ++j)
+			{
+				if(++i >= _str->len)
+				{
+					// _str has ended and the comparison could not end.
+					return false;
+				}
+				
+				if(_str->buffer.bytes[i] != b[j])
+				{
+					bContains = false;
+					break;
+				}
+			}
+			
+			if(bContains)
+			{
+				return true;
+			}			
+		}
+	}
+	
+	return true;
 }
