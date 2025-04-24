@@ -53,20 +53,24 @@ typedef double f64;
 #define Kilobyte(v) 1024 * Megabyte(v)
 #define Gigabyte(v) 1024 * Kilobyte(v)
 
-struct arena_t
+typedef struct arena_t
 {
-    u8* data;
+	
+	u8* data;
     u64 used;
     u64 size;
     u32 temp_count;
-};
+	
+} arena_t;
 
-struct memory_t 
+typedef struct memory_t 
 {
     arena_t transient_memory;
     arena_t permanent_memory;
     
-} g_memory;
+} memory_t;
+
+global memory_t g_memory;
 
 #ifndef MAYORANA_MEMORY_TRANSIENT_SIZE
 #define MAYORANA_MEMORY_TRANSIENT_SIZE Megabyte(100)
@@ -77,16 +81,16 @@ struct memory_t
 #endif // MAYORANA_MEMORY_PERMANENT_SIZE
 
 
-void Mayorana_Init_Memory();
+internal_f void Mayorana_Init_Memory();
 
-void
+internal_f void
 Mayorana_Framework_Init()
 {
 	printf("----Mayorana Init----\n");
     Mayorana_Init_Memory();
 }
 
-void
+internal_f void
 Mayorana_Init_Memory()
 {
 	// TODO crate per platform 
@@ -115,44 +119,81 @@ Mayorana_Init_Memory()
 
 struct scratch_t;
 
-void
-_scratch_end(scratch_t *_arena);
+#ifdef __cplusplus
+extern "C" {
+#endif
+	internal_f void _scratch_end(scratch_t *scratch);	
+#ifdef __cplusplus
+}
+#endif
 
 /** Definition of a Temp Arena.
  *(juanes.rayo): just using the same name 4ed uses, for simplicity when using it along the code. 
  */
-struct scratch_t
+typedef struct scratch_t 
 {
-    scratch_t(bool _bStack = true)
-    {
+    arena_t* arena;
+    u64 cached_parent_used;
+    bool bStack;
+	
+#ifdef __cplusplus
+	
+	// C++ constructor/destructor
+	
+    scratch_t(bool _bStack = true) 
+	{
         arena = &g_memory.transient_memory;
         cached_parent_used = arena->used;
         bStack = _bStack;
-        
         arena->temp_count++;
     }
-    
-    ~scratch_t()
-    {
-        // just a tem arena that is eneded upon stack end.
-        if(bStack)
-        {
+	
+    ~scratch_t() 
+	{
+        if (bStack) {
             _scratch_end(this);
         }
     }
-    
-    arena_t *arena;
-    u64 cached_parent_used;
-    bool bStack;
-};
+#endif
+	
+} scratch_t;
 
-void
-_scratch_end(scratch_t *_arena)
-{
-    _arena->arena->temp_count--;
-    _arena->arena->used = _arena->cached_parent_used;
-    
+
+#ifdef __cplusplus
+extern "C" {
+#endif //__cplusplus
+	
+	internal_f void
+		scratch_begin(scratch_t *scratch, bool bStack)
+	{
+		scratch->arena = &g_memory.transient_memory;
+		scratch->cached_parent_used = scratch->arena->used;
+		scratch->bStack = bStack;
+		scratch->arena->temp_count++;	
+	}
+	
+	internal_f void
+		scratch_end(scratch_t *scratch)
+	{
+		if(scratch->bStack)
+		{
+			_scratch_end(scratch);
+		}
+	}
+	
+	internal_f void
+		_scratch_end(scratch_t *scratch)
+	{
+		scratch->arena->used = scratch->cached_parent_used;
+		scratch->arena->temp_count--;
+	}
+	
+	
+	
+#ifdef __cplusplus
 }
+#endif // __cplusplus
+
 
 word_t 
 _push_size(arena_t *_arena, u64 _size)
