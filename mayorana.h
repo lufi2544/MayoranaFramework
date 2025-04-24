@@ -255,7 +255,7 @@ scratch_t scratch;       \
 scratch_begin(&scratch, true);    \
 arena_t* temp_arena = scratch.arena; \
 
-#define SCRATCH_END() scratch_end(scratch);
+#define SCRATCH_END() scratch_end(&scratch);
 
 
 
