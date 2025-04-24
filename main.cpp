@@ -51,7 +51,13 @@ int main (int, char**)
 			printf("Type: %i, name %s \n", animal->type, animal->name);
 			it = it->next_sibling;
 		}		        
+		string_t name = STRING_V(temp_arena, "ouuuuu shit");
+		
+		printf("NAME: %s \n", *name);
     }
+	
+	
+	
     
 	return 0;
 }

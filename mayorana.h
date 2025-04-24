@@ -478,7 +478,7 @@ create_buffer(arena_t *_arena, u64 _size)
 		return result;
 	}
 	
-	result.bytes = allocated_data;
+	result.bytes = (u8*)allocated_data;
 	result.size = _size;
 	
 	return result;
@@ -551,8 +551,10 @@ free_buffer(buffer_t *_buffer)
 /////// STRING //////////////////
 
 
+global void
+string_push_char(struct string_t *_str, u8 character);
 
-typedef struct
+typedef struct string_t
 {
     buffer_t buffer;
     u32 len;
@@ -585,17 +587,17 @@ typedef struct
     }
 	
     // Append character (like push_char)
-    inline void operator+=(char c) 
+    inline void operator += (char c) 
 	{
         string_push_char(this, c);
     }
 	
     // Optional: Convert to const char*
-    inline operator const char*() const 
+    inline const char* operator *() const 
 	{
         return (const char*)buffer.bytes;
     }
-	
+			
 #endif // __cplusplus
 	
 } string_t;
@@ -731,3 +733,9 @@ string_contains(string_t *_str, const char* b)
 	
 	return true;
 }
+
+global void string_print(string_t *string)
+{
+	printf("%s \n", string->buffer.bytes);
+}
+
