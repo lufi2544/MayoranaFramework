@@ -202,8 +202,14 @@ extern "C" {
 	internal_f void
 		_scratch_end(scratch_t *scratch)
 	{
-		scratch->arena->used = scratch->cached_parent_used;
-		scratch->arena->temp_count--;
+		if(scratch->arena)
+		{
+			scratch->arena->used = scratch->cached_parent_used;
+			scratch->arena->temp_count--;			
+			
+			scratch->arena = 0;
+			scratch->cached_parent_used = 0;
+		}				
 	}
 	
 	
@@ -249,8 +255,7 @@ scratch_t scratch;       \
 scratch_begin(&scratch, true);    \
 arena_t* temp_arena = scratch.arena; \
 
-#define SCRATCH_END() scratch_end(temp_memory);
-
+#define SCRATCH_END() scratch_end(scratch);
 
 
 
