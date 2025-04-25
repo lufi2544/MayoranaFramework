@@ -94,6 +94,9 @@ global memory_t g_memory;
 #endif // MAYORANA_MEMORY_PERMANENT_SIZE
 
 
+
+#define MAYORANA_LOG(format, ...) printf("Mayorana Log:" format "\n", ##__VA_ARGS__)
+
 ////// Forward declarations of Init function definitions
 internal_f void Mayorana_Init_Memory();
 
@@ -102,7 +105,7 @@ internal_f void Mayorana_Init_Memory();
 global void
 Mayorana_Framework_Init()
 {	
-	printf("----Mayorana Init----\n");
+	MAYORANA_LOG("---- Framework Init----");
     Mayorana_Init_Memory();
 }
 
@@ -110,29 +113,26 @@ internal_f void
 Mayorana_Init_Memory()
 {
 	
-	printf("--- MAYORANA MEMORY --- \n");
+	MAYORANA_LOG("--- MEMORY ---");
 #ifdef __APPLE__    
     g_memory.transient.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);   
     g_memory.permanent.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);    
 	
-	printf("-- Memory Init MacOS-- \n");
+	MAYORANA_LOG("-- Memory Init MacOS--");
 #endif // __APPLE__
 	
 #ifdef _WIN32
 	g_memory.transient.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.permanent.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	
-	printf("-- Memory Init Windows -- \n");
+	MAYORANA_LOG("-- Memory Init Windows --");
 #endif // _WIN32
 	
 	
 	g_memory.transient.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
     g_memory.permanent.size = MAYORANA_MEMORY_PERMANENT_SIZE;
 	
-	printf("Memory props: \n   Arena transient: %llu \n   Arena permanent: %llu \n", g_memory.transient.size, g_memory.permanent.size);
-	
-	printf("----  ---- \n");
-	
+	MAYORANA_LOG("\n Memory: \n Arena transient: %llu \n Arena permanent: %llu \n ----  ---- \n", g_memory.transient.size, g_memory.permanent.size);	
 }
 
 
@@ -550,9 +550,22 @@ free_buffer(buffer_t *_buffer)
 //////////////////////////////////
 /////// STRING //////////////////
 
+// NOTE: PART
 
+/////// Forward Declarations ///////
 global void
 string_push_char(struct string_t *_str, u8 character);
+
+global bool 
+string_contains(struct string_t *_str, const char* b);
+
+global bool 
+is_equal_cstr(struct string_t *_str, const char* b);
+
+global void
+print_string(struct string_t *string);
+//////
+
 
 typedef struct string_t
 {
@@ -597,6 +610,16 @@ typedef struct string_t
 	{
         return (const char*)buffer.bytes;
     }
+	
+	bool contains(const char* b)
+	{
+		string_contains(this, b);
+	}
+	
+	void print()
+	{
+		print_string(this);
+	}
 			
 #endif // __cplusplus
 	
@@ -611,21 +634,19 @@ typedef struct string_t
 * 2. _content is not empty neither _len, then internal buffer will be _content size + _len + 1.
 * 3. _content is empty but string not _len, then internal buffer will be _len + 1.
 * 4. _content and _len are empty, then DEFAULT_EMPTY_STRING_LEN + 1 will be internal buffer size;
-*
 */
 
 // string raw default len
-#define STRING(a) make_string(a, DEFAULT_EMPTY_STRING_LEN, 0)
+#define STRING(arena) make_string(arena, DEFAULT_EMPTY_STRING_LEN, 0)
 // string lenght 
-#define STRING_L(a, l) make_string(a, l, 0)
+#define STRING_L(arena, lenght) make_string(arena, lenght, 0)
 // string verbal
-#define STRING_V(a, c) make_string(a, 0, c)
+#define STRING_V(arena, content) make_string(arena, 0, content)
 // string verbal lenght, ready to be expanded
-#define STRING_VL(a, l, c) make_string(a, l, c)
+#define STRING_VL(arena, lenght, content) make_string(arena, lenght, content)
 
 // string content macro
 #define STRING_CONTENT(s) (char*)s.buffer.bytes
-
 
 global string_t
 make_string(arena_t *_arena, u32 _len, const char* _content)
@@ -687,14 +708,14 @@ string_push_char(string_t *_str, u8 character)
     _str->buffer.bytes[_str->len] = '\0';		
 }
 
-internal_f bool 
+global bool 
 is_equal_cstr(string_t *_str, const char* b)
 {
 	
 	return buffer_is_equal_cstring(_str->buffer, b);
 }
 
-internal_f bool 
+global bool 
 string_contains(string_t *_str, const char* b)
 {	
 	u32 c_str_len = cstr_len(b);
@@ -734,8 +755,7 @@ string_contains(string_t *_str, const char* b)
 	return true;
 }
 
-global void string_print(string_t *string)
+global void print_string(string_t *string)
 {
 	printf("%s \n", string->buffer.bytes);
 }
-
