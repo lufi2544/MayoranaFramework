@@ -399,6 +399,85 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 	
 }
 
+/// LIST SORTING ///
+
+
+internal_f void
+split_list(list_node_t *_source, list_node_t **_front_ref, list_node_t **_back_ref)
+{
+	list_node_t *slow = _source;
+	list_node_t *fast = _source->next_sibling;
+	
+	// Splitting the list in 2, fast advances by 2 nodes and slow by 1, so when fast finishes the list, then slow is at the middle.
+	while(fast)
+	{
+		fast = fast->next_sibling;
+		if(fast)
+		{
+			slow = slow->next_sibling;
+			fast = fast->next_sibling;
+		}
+	}
+	
+	*_front_ref = _source;
+	*_back_ref = slow->next_sibling;
+	slow->next_sibling = 0;	
+}
+
+/* Compare function definition. Possible outcomes:
+*  |-1 a < b|
+*  |0 a == b|
+*  |1 a > b |
+*/
+typedef s8 (*list_compare_fn)(const void*, const void*);
+
+global list_node_t*
+merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
+{
+	// Keep comparing the both lists separately and adding nodes as they are less than the other.
+	/*
+     *  a = 2, 5, 7; b = 3, 6, 8;
+     *  2-3 -> add 2 => 5 - 3 -> add 3 == > 5 - 6 -> add 5 ==> 7 - 6 -> add 6 ==> 7 - 8 -> add 7 ==> 8 since a is empty. return list.
+    */
+	if(!a) return b;
+	if(!b) return a;
+	
+	list_node_t *result = 0;
+	
+	if(compare(a->data, b->data) <= 0)
+	{
+		result = a;
+		result->next_sibling = merge_sorted_lists(a->next_sibling, b, compare);
+	}
+	else
+	{
+		result = b;
+		result->next_sibling = merge_sorted_lists(a, b->next_sibling, compare);
+	}
+	
+	return result;
+}
+
+
+global void
+merge_sort(list_node_t **_head_ref, list_compare_fn compare)
+{
+	list_node_t *head = *_head_ref;
+	if(!head || !head->next_sibling == 0)
+	{
+		return;
+	}
+	
+	list_node_t *a, *b;
+	split_list(head, &a, &b);
+	
+	merge_sort(&a, compare);
+	merge_sort(&b, compare);
+	
+	*_head_ref = merge_sorted_lists(a, b, compare);	
+}
+
+
 
 //////////////////////////////
 /////// BUFFER //////////////
