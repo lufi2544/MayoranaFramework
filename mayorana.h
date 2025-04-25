@@ -318,6 +318,11 @@ make_list(arena_t *_arena, void* _data);
 #define LIST(arena) make_list(arena, 0)
 #define LIST_NODE_DATA(list_node, type) (type*)list_node->data
 
+// TODO: create the C++ iterator overload.
+#define LIST_FOREACH(type, variable, list) \
+for(list_node_t *node = list.head; node != 0 && (variable = LIST_NODE_DATA(node, type)); node = node->next_sibling)
+
+
 
 
 internal_f list_t 
