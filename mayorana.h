@@ -320,10 +320,27 @@ make_list(arena_t *_arena, void* _data);
 
 // TODO: create the C++ iterator overload.
 #define LIST_FOREACH(type, variable, list) \
-for(list_node_t *node = list.head; node != 0 && (variable = LIST_NODE_DATA(node, type)); node = node->next_sibling)
+for(list_node_t *it = list.head; it != 0 && (variable = LIST_NODE_DATA(it, type)); it = it->next_sibling)
+/*
+LIST_FOREACH(struct_t, struct_varialbe, struct_list)
+{
+   do stuff with "struct_variable".
+}
+*/
 
-
-
+#define PRINT_LIST(type, list, format, ...) \
+type* value = 0;\
+LIST_FOREACH(type, value, list) \
+{ \
+if(it->next_sibling == 0)\
+{\
+	printf(format "\n", ##__VA_ARGS__);\
+}\
+else\
+{\
+printf(format", ", ##__VA_ARGS__);   \
+}\
+}\
 
 internal_f list_t 
 make_list(arena_t *_arena, void* _data)
@@ -399,6 +416,7 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 	
 }
 
+////////////////////
 /// LIST SORTING ///
 
 
@@ -431,7 +449,7 @@ split_list(list_node_t *_source, list_node_t **_front_ref, list_node_t **_back_r
 */
 typedef s8 (*list_compare_fn)(const void*, const void*);
 
-global list_node_t*
+internal_f list_node_t*
 merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
 {
 	// Keep comparing the both lists separately and adding nodes as they are less than the other.
@@ -465,6 +483,7 @@ merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 	list_node_t *head = *_head_ref;
 	if(!head || !head->next_sibling == 0)
 	{
+		printf("RETURNINGGG");
 		return;
 	}
 	
