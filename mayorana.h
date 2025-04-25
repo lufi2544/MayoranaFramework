@@ -94,8 +94,11 @@ global memory_t g_memory;
 #endif // MAYORANA_MEMORY_PERMANENT_SIZE
 
 
+///// LOGGING //////
 
 #define MAYORANA_LOG(format, ...) printf("Mayorana Log:" format "\n", ##__VA_ARGS__)
+
+//////
 
 ////// Forward declarations of Init function definitions
 internal_f void Mayorana_Init_Memory();
