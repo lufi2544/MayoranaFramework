@@ -417,6 +417,11 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 	
 }
 
+/*global list_node_t* list_get_tail(list_t *_list)
+{
+
+}*/
+
 ////////////////////
 /// LIST SORTING ///
 
@@ -488,7 +493,7 @@ global_def void
 merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 {
 	list_node_t *head = *_head_ref;
-	if(!head || !head->next_sibling == 0)
+	if(!head || head->next_sibling == 0)
 	{
 		return;
 	}

@@ -47,7 +47,6 @@ int main (int, char**)
 		int name_size = 10;
 		char* animal_name_1 = push_array(temp_arena, name_size, char);
 		snprintf(animal_name_1, name_size, "LOL");
-		
 		char* animal_name_2 = push_array(temp_arena, name_size, char);
 		snprintf(animal_name_2, name_size, "LOLO");
 		
@@ -81,23 +80,23 @@ int main (int, char**)
 		list_t sorting_list = LIST(temp_arena);
 		
 		
-		u8 a_0 = 8;
-		u8 a_1 = 7;
-		u8 a_2 = 6;
-		u8 a_3 = 5;
+		u8 a_1 = 1;
+		u8 a_2 = 2;
+		u8 a_3 = 3;
 		u8 a_4 = 4;
-		u8 a_5 = 3;
-		u8 a_6 = 2;
-		u8 a_7 = 1;
+		u8 a_0 = 0;
+		u8 a_5 = 5;
+		u8 a_6 = 6;
+		u8 a_7 = 7;
 		
-		LIST_ADD(temp_arena, sorting_list, a_7, u8);
+		LIST_ADD(temp_arena, sorting_list, a_0, u8);
 		LIST_ADD(temp_arena, sorting_list, a_6, u8);
+		LIST_ADD(temp_arena, sorting_list, a_7, u8);
+		LIST_ADD(temp_arena, sorting_list, a_2, u8);
+		LIST_ADD(temp_arena, sorting_list, a_1, u8);
 		LIST_ADD(temp_arena, sorting_list, a_5, u8);
 		LIST_ADD(temp_arena, sorting_list, a_4, u8);
 		LIST_ADD(temp_arena, sorting_list, a_3, u8);
-		LIST_ADD(temp_arena, sorting_list, a_2, u8);
-		LIST_ADD(temp_arena, sorting_list, a_1, u8);
-		LIST_ADD(temp_arena, sorting_list, a_0, u8);
 		
 		{
 			PRINT_LIST(u8, sorting_list, "%i",*value);
@@ -108,9 +107,7 @@ int main (int, char**)
 		{
 			PRINT_LIST(u8, sorting_list, "%i",*value);
 		}						
-
-    }
-			
+    }			
     
 	return 0;
 }
