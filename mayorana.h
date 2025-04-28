@@ -38,6 +38,7 @@ typedef float f32;
 typedef double f64;
 
 #define global static
+#define global_def static
 #define local static
 #define internal_f static
 
@@ -419,6 +420,19 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 ////////////////////
 /// LIST SORTING ///
 
+// NOTE: PART
+
+////////////////////
+//// MERGE SORT ////
+/* Compare function definition. Possible outcomes:
+*  |-1 a < b|
+*  |0 a == b|
+*  |1 a > b |
+*/
+typedef s8 (*list_compare_fn)(const void*, const void*);
+
+global void
+merge_sort(list_node_t **_head_ref, list_compare_fn compare);
 
 internal_f void
 split_list(list_node_t *_source, list_node_t **_front_ref, list_node_t **_back_ref)
@@ -441,13 +455,6 @@ split_list(list_node_t *_source, list_node_t **_front_ref, list_node_t **_back_r
 	*_back_ref = slow->next_sibling;
 	slow->next_sibling = 0;	
 }
-
-/* Compare function definition. Possible outcomes:
-*  |-1 a < b|
-*  |0 a == b|
-*  |1 a > b |
-*/
-typedef s8 (*list_compare_fn)(const void*, const void*);
 
 internal_f list_node_t*
 merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
@@ -477,13 +484,12 @@ merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
 }
 
 
-global void
+global_def void
 merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 {
 	list_node_t *head = *_head_ref;
 	if(!head || !head->next_sibling == 0)
 	{
-		printf("RETURNINGGG");
 		return;
 	}
 	
@@ -495,7 +501,6 @@ merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 	
 	*_head_ref = merge_sorted_lists(a, b, compare);	
 }
-
 
 
 //////////////////////////////
