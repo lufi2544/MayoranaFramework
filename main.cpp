@@ -1,11 +1,15 @@
 
+
+
+#ifdef MAYORANA
+
+
 #include <cstdio>
 
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
 
 #include "mayorana.h"
-#include "mayorana_tests.h"
 
 struct Animal
 {	
@@ -13,7 +17,7 @@ struct Animal
 	char* name;
 };
 
-#ifdef MAYORANA
+#include "mayorana_tests.h"
 
 s8 compare_stuff_fn(const void* _a, const void* _b)
 {
