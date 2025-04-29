@@ -1,0 +1,5 @@
+////////////////////////////
+
+
+- Having the buffer_t to be void* driven.
+- Create a string_t from this plain buffer of data.
