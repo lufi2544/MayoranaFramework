@@ -1,5 +1,11 @@
 ////////////////////////////
 
+TESTS:
+- Write Tests for string_t
+- Write Tests for list_t
 
-- Having the buffer_t to be void* driven.
+- Write tests for arena
+
+MAIN:
 - Create a string_t from this plain buffer of data.
+- Maybe adding array_t? as it would be just a wrapper.
