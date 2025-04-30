@@ -513,23 +513,9 @@ merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 
 //NOTE: PART 
 
-u32 cstr_len(const char* _str)
-{	
-	if(_str == 0)
-	{
-		return 0;
-	}
-	
-	u32 size = 0;
-	char ptr = ' ';
-	while(ptr != '\0')
-	{
-		ptr = _str[size];	
-		++size;
-	}
-	
-	return size - 1;
-}
+global u32
+cstr_len(const char* _str);
+
 
 
 ///// BUFFER FORWARD DECLARATIONS
@@ -538,11 +524,17 @@ global bool buffer_is_equal(struct buffer_t a, struct buffer_t b);
 
 /////
 
-/** This acts as a memory container of data. */
+/**
+ *  This acts as a memory container of data.
+ *  It is very important to note that if we use a buffer and write to it, when creating a buffer from that memory, 
+ *  the memory will NOT be 0, as we would have garbage from the previus use. 
+ *
+ *  Normally a buffer is used when writing some bytes to it, so we would know beforehand how many bytes we would need.
+ *  But if we would use this for an array or a string, we would need to set the mem to 0 when using.
+ **/
 typedef struct buffer_t
 {
-    void* bytes;
-	u64 type_size;
+    void* data;
     u64 size;
 	
 #ifdef __cplusplus
@@ -554,21 +546,7 @@ typedef struct buffer_t
     inline bool operator!=(const buffer_t& other) const 
 	{
         return !(*this == other);
-    }
-	
-	/**
-// TODO bring this to the string_t
-    inline u8& operator[](u32 index) 
-	{
-        assert(index < size && "buffer_t index out of bounds");
-        return bytes[index];
-    }
-	
-    inline const u8& operator[](u32 index) const
-	{
-        assert(index < size && "buffer_t index out of bounds");
-        return bytes[index];
-    }*/
+    }	
 #endif // __cplusplus
 	
 } buffer_t;
@@ -596,39 +574,25 @@ create_buffer(arena_t *_arena, u64 _size)
 		return result;
 	}
 	
-	result.bytes = (u8*)allocated_data;
+	result.data = (u8*)allocated_data;
 	result.size = _size;
-	
-	return result;
-}
-
-// TODO create a string_t from this.
-global buffer_t 
-create_buffer_string(arena_t *_arena, u32 _size)
-{
-	buffer_t result = create_buffer(_arena, _size);
-	u8 *bytes_as_u8 = (u8*)result.bytes;
-	bytes_as_u8[result.size - 1] = '\0';
 	
 	return result;
 }
 
 global bool 
 buffer_is_equal(buffer_t a, buffer_t b)
-{
-	u64 a_type = a.type_size;
-	u64 b_type = b.type_size;
-	if((a.size != b.size) || (a_type != b_type))
+{	
+	if(a.size != b.size)
 	{
 		return false;
 	}
 	
-	u64 total_size = a.size * a_type;
-	u8 *a_bytes = (u8*)a.bytes;	
-	u8 *b_bytes = (u8*)b.bytes;
-	for(u64 i = 0; i < total_size; ++i)
+	u8 *a_data = (u8*)a.data;	
+	u8 *b_data = (u8*)b.data;
+	for(u64 i = 0; i < a.size; ++i)
 	{
-		if(a_bytes[i] != b_bytes[i])
+		if(a_data[i] != b_data[i])
 		{
 			return false;
 		}	
@@ -638,13 +602,13 @@ buffer_is_equal(buffer_t a, buffer_t b)
 }
 
 
-// With memory arena this is not needed.
+// With the memory arena we only need to set the buffer to 0.
 global void 
 free_buffer(buffer_t *_buffer)
 {
-	if(_buffer->bytes)
+	if(_buffer->data)
 	{		
-		_buffer->bytes = 0;
+		_buffer->data = 0;
 	}	
 }
 
@@ -671,6 +635,36 @@ print_string(struct string_t *string);
 //////
 
 
+
+global u32 cstr_len(const char* _str)
+{	
+	if(_str == 0)
+	{
+		return 0;
+	}
+	
+	u32 size = 0;
+	char ptr = ' ';
+	while(ptr != '\0')
+	{
+		ptr = _str[size];	
+		++size;
+	}
+	
+	return size - 1;
+}
+
+global buffer_t 
+create_buffer_string(arena_t *_arena, u32 _size)
+{
+	buffer_t result = create_buffer(_arena, _size);
+	u8 *data_as_u8 = (u8*)result.data;
+	data_as_u8[result.size - 1] = '\0';
+	
+	return result;
+}
+
+
 typedef struct string_t
 {
     buffer_t buffer;
@@ -694,15 +688,15 @@ typedef struct string_t
     inline u8& operator[](u32 index) 
 	{
         assert(index < len);
-		u8 *buffer_as_bytes = (u8*)buffer.bytes;
-        return buffer_as_bytes[index];
+		u8 *buffer_as_data = (u8*)buffer.data;
+        return buffer_as_data[index];
     }
 	
     inline const u8& operator[](u32 index) const 
 	{
         assert(index < len);
-		u8 *buffer_as_bytes = (u8*)buffer.bytes;
-        return buffer_as_bytes[index];
+		u8 *buffer_as_data = (u8*)buffer.data;
+        return buffer_as_data[index];
     }
 	
     // Append character (like push_char)
@@ -714,7 +708,7 @@ typedef struct string_t
     // Optional: Convert to const char*
     inline const char* operator *() const 
 	{
-        return (const char*)buffer.bytes;
+        return (const char*)buffer.data;
     }
 	
 	bool contains(const char* b)
@@ -752,7 +746,7 @@ typedef struct string_t
 #define STRING_VL(arena, lenght, content) make_string(arena, lenght, content)
 
 // string content macro
-#define STRING_CONTENT(s) (char*)s.buffer.bytes
+#define STRING_CONTENT(s) (char*)s.buffer.data
 
 global string_t
 make_string(arena_t *_arena, u32 _len, const char* _content)
@@ -788,8 +782,8 @@ make_string(arena_t *_arena, u32 _len, const char* _content)
 		assert(content_len + 1 == buffer_str.size);
 		for(u32 i = 0; i < content_len; ++i)
 		{
-			u8 *buffer_as_bytes = (u8*)buffer_str.bytes;
-			buffer_as_bytes[i] = _content[i];
+			u8 *buffer_as_data = (u8*)buffer_str.data;
+			buffer_as_data[i] = _content[i];
 		}		
 		
 		result.len = content_len;
@@ -811,10 +805,10 @@ string_push_char(string_t *_str, u8 character)
 	// if hit, then request more memory for this string buffer upon creation.
 	assert((_str->len + 1) < (_str->buffer.size));
 	
-	u8 *buffer_as_bytes = (u8*)_str->buffer.bytes;
+	u8 *buffer_as_data = (u8*)_str->buffer.data;
 	
-    buffer_as_bytes[_str->len++] = character;
-    buffer_as_bytes[_str->len] = '\0';		
+    buffer_as_data[_str->len++] = character;
+    buffer_as_data[_str->len] = '\0';		
 }
 
 // TODO TEST
@@ -827,10 +821,10 @@ is_equal_cstr(const struct string_t *_str, const char* b)
 		return false;
 	}
 	
-	u8 *buffer_as_bytes = (u8*)_str->buffer.bytes;		
+	u8 *buffer_as_data = (u8*)_str->buffer.data;		
 	for(u32 i = 0; i < c_str_len; ++i)
 	{
-		if(buffer_as_bytes[i] != b[i])
+		if(buffer_as_data[i] != b[i])
 		{
 			return false;
 		}
@@ -850,8 +844,8 @@ string_contains(string_t *_str, const char* b)
 	
 	for(u32 i = 0; i < _str->len; ++i)
 	{
-		u8 *buffer_as_bytes = (u8*)_str->buffer.bytes;
-		if(buffer_as_bytes[i] == b[0])
+		u8 *buffer_as_data = (u8*)_str->buffer.data;
+		if(buffer_as_data[i] == b[0])
 		{
 			bool bContains = true;
 			// start comparing potential string
@@ -863,7 +857,7 @@ string_contains(string_t *_str, const char* b)
 					return false;
 				}
 				
-				if(buffer_as_bytes[i] != b[j])
+				if(buffer_as_data[i] != b[j])
 				{
 					bContains = false;
 					break;
@@ -882,6 +876,6 @@ string_contains(string_t *_str, const char* b)
 
 global void print_string(string_t *string)
 {
-	u8 *buffer_as_bytes = (u8*)string->buffer.bytes;
-	printf("%s \n", buffer_as_bytes);
+	u8 *buffer_as_data = (u8*)string->buffer.data;
+	printf("%s \n", buffer_as_data);
 }
