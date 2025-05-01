@@ -767,7 +767,7 @@ make_string(arena_t *_arena, u32 _size, const char* _content)
 	u8 *data_as_u8 = (u8*)buffer_str.data;
 	
 	// Reset the memory to 0 since we are using arena allocator, we can run into garbage from previous written bytes.
-	memset(data_as_u8, 0, _size);
+	memset(data_as_u8, 0, string_buffer_size);
 	data_as_u8[buffer_str.size - 1] = '\0';
 	
 	
