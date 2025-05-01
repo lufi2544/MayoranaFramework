@@ -1,8 +1,6 @@
 //
 
 TEST_SUITE_BEGIN("buffer");
-
-
 TEST_CASE("Create Buffer")
 {
 	SCRATCH();

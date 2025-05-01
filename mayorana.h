@@ -48,7 +48,7 @@ typedef double f64;
 ////////////////////////////////////
 /////// MEMORY ARENA //////////////
 
-// NOTE: PART
+// NOTE: PART MEMORY ARENA
 
 
 #ifdef __APPLE__
@@ -102,19 +102,19 @@ global memory_t g_memory;
 //////
 
 ////// Forward declarations of Init function definitions
-internal_f void Mayorana_Init_Memory();
+internal_f void mayorana_memory_init();
 
 
 ////// Entroy point for the Framework. Must call when initializing the application.
 global void
-Mayorana_Framework_Init()
+mayorana_init()
 {	
 	MAYORANA_LOG("---- Framework Init----");
-    Mayorana_Init_Memory();
+	mayorana_memory_init();
 }
 
 internal_f void
-Mayorana_Init_Memory()
+mayorana_memory_init()
 {
 	
 	MAYORANA_LOG("--- MEMORY ---");
@@ -141,7 +141,7 @@ Mayorana_Init_Memory()
 
 
 global void
-Mayorana_Framework_End()
+mayorana_shutdown()
 {
 	if(g_memory.permanent.data)
 	{
@@ -287,10 +287,10 @@ arena_t* temp_arena = scratch.arena; \
 /////////////////////////////////////////////
 /////////// DATA STRUCTURES ////////////////
 
-// NOTE: PART
+// NOTE: PART DATA STRUCTURES
 
 ///// LINKED LIST IMPLEMENTATION /////
-
+// NOTE: PART LIST
 
 // TODO Make iterator for the list for C++
 typedef struct list_node_t
@@ -425,7 +425,7 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 ////////////////////
 /// LIST SORTING ///
 
-// NOTE: PART
+// NOTE: PART LIST SORTING
 
 ////////////////////
 //// MERGE SORT ////
@@ -511,12 +511,10 @@ merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 //////////////////////////////
 /////// BUFFER //////////////
 
-//NOTE: PART 
+//NOTE: PART BUFFER
 
 global u32
 cstr_len(const char* _str);
-
-
 
 ///// BUFFER FORWARD DECLARATIONS
 
@@ -618,7 +616,7 @@ free_buffer(buffer_t *_buffer)
 //////////////////////////////////
 /////// STRING //////////////////
 
-// NOTE: PART
+// NOTE: PART STRING
 
 /////// Forward Declarations ///////
 global void
@@ -636,7 +634,8 @@ print_string(struct string_t *string);
 
 
 
-global u32 cstr_len(const char* _str)
+global u32 
+cstr_size(const char* _str)
 {	
 	if(_str == 0)
 	{
@@ -654,11 +653,15 @@ global u32 cstr_len(const char* _str)
 	return size - 1;
 }
 
-global buffer_t 
+internal_f buffer_t 
 create_buffer_string(arena_t *_arena, u32 _size)
 {
+	
 	buffer_t result = create_buffer(_arena, _size);
 	u8 *data_as_u8 = (u8*)result.data;
+	
+	// Reset the memory to 0 since we are using arena allocator, we can run into garbage from previous written bytes.
+	memset(data_as_u8, 0, _size);
 	data_as_u8[result.size - 1] = '\0';
 	
 	return result;
@@ -668,7 +671,7 @@ create_buffer_string(arena_t *_arena, u32 _size)
 typedef struct string_t
 {
     buffer_t buffer;
-    u32 len;
+    u32 size;
 	
 #ifdef __cplusplus	
 	
@@ -687,14 +690,14 @@ typedef struct string_t
     // Char access
     inline u8& operator[](u32 index) 
 	{
-        assert(index < len);
+        assert(index < size);
 		u8 *buffer_as_data = (u8*)buffer.data;
         return buffer_as_data[index];
     }
 	
     inline const u8& operator[](u32 index) const 
 	{
-        assert(index < len);
+        assert(index < size);
 		u8 *buffer_as_data = (u8*)buffer.data;
         return buffer_as_data[index];
     }
@@ -730,43 +733,43 @@ typedef struct string_t
 
 
 /* Creates a string.
-* 1. _content is not empty, so string len will mach _contentlen.
-* 2. _content is not empty neither _len, then internal buffer will be _content size + _len + 1.
-* 3. _content is empty but string not _len, then internal buffer will be _len + 1.
-* 4. _content and _len are empty, then DEFAULT_EMPTY_STRING_LEN + 1 will be internal buffer size;
+* 1. _content is not empty, so string size will mach _contentsize.
+* 2. _content is not empty neither _size, then internal buffer will be _content size + _size + 1.
+* 3. _content is empty but string not _size, then internal buffer will be _size + 1.
+* 4. _content and _size are empty, then DEFAULT_EMPTY_STRING_LEN + 1 will be internal buffer size;
 */
 
-// string raw default len
+// string raw default size
 #define STRING(arena) make_string(arena, DEFAULT_EMPTY_STRING_LEN, 0)
-// string lenght 
-#define STRING_L(arena, lenght) make_string(arena, lenght, 0)
+// string sizeght 
+#define STRING_L(arena, size) make_string(arena, size, 0)
 // string verbal
 #define STRING_V(arena, content) make_string(arena, 0, content)
-// string verbal lenght, ready to be expanded
-#define STRING_VL(arena, lenght, content) make_string(arena, lenght, content)
+// string verbal size, ready to be expanded
+#define STRING_VL(arena, size, content) make_string(arena, size, content)
 
 // string content macro
 #define STRING_CONTENT(s) (char*)s.buffer.data
 
 global string_t
-make_string(arena_t *_arena, u32 _len, const char* _content)
+make_string(arena_t *_arena, u32 _size, const char* _content)
 {
 	string_t result;
-	u32 content_len = cstr_len(_content);
+	u32 content_size = cstr_size(_content);
 	
 	u32 string_buffer_size = 0;
-	if(content_len > 0)
+	if(content_size > 0)
 	{				
-		string_buffer_size = (_len > 0) ? (content_len + _len) : (content_len);	
+		string_buffer_size = (_size > 0) ? (content_size + _size) : (content_size);	
 	}
 	else
 	{
-		if(_len == 0)
+		if(_size == 0)
 		{
-			_len = DEFAULT_EMPTY_STRING_LEN;
+			_size = DEFAULT_EMPTY_STRING_LEN;
 		}
 		
-		string_buffer_size = _len;
+		string_buffer_size = _size;
 	}
 	
 	// null operator;
@@ -774,19 +777,20 @@ make_string(arena_t *_arena, u32 _len, const char* _content)
 	
 	buffer_t buffer_str = create_buffer_string(_arena, string_buffer_size);
 	
-	result.buffer = buffer_str;
-	result.len = 0;
 	
-	if(content_len > 0)
+	result.buffer = buffer_str;
+	result.size = 0;
+	
+	if(content_size > 0)
 	{
-		assert(content_len + 1 == buffer_str.size);
-		for(u32 i = 0; i < content_len; ++i)
+		assert(content_size + 1 == buffer_str.size);
+		for(u32 i = 0; i < content_size; ++i)
 		{
 			u8 *buffer_as_data = (u8*)buffer_str.data;
 			buffer_as_data[i] = _content[i];
-		}		
+		}
 		
-		result.len = content_len;
+		result.size = content_size;
 	}	
 	
 	return result;
@@ -803,26 +807,26 @@ string_push_char(string_t *_str, u8 character)
 	}
 	
 	// if hit, then request more memory for this string buffer upon creation.
-	assert((_str->len + 1) < (_str->buffer.size));
+	assert((_str->size + 1) < (_str->buffer.size));
 	
 	u8 *buffer_as_data = (u8*)_str->buffer.data;
 	
-    buffer_as_data[_str->len++] = character;
-    buffer_as_data[_str->len] = '\0';		
+    buffer_as_data[_str->size++] = character;
+    buffer_as_data[_str->size] = '\0';		
 }
 
 // TODO TEST
 global bool 
 is_equal_cstr(const struct string_t *_str, const char* b)
 {
-	u32 c_str_len = cstr_len(b);	
-	if(c_str_len != _str->len)
+	u32 c_str_size = cstr_size(b);	
+	if(c_str_size != _str->size)
 	{
 		return false;
 	}
 	
 	u8 *buffer_as_data = (u8*)_str->buffer.data;		
-	for(u32 i = 0; i < c_str_len; ++i)
+	for(u32 i = 0; i < c_str_size; ++i)
 	{
 		if(buffer_as_data[i] != b[i])
 		{
@@ -836,22 +840,22 @@ is_equal_cstr(const struct string_t *_str, const char* b)
 global bool 
 string_contains(string_t *_str, const char* b)
 {	
-	u32 c_str_len = cstr_len(b);
-	if((_str == 0) || (c_str_len == 0) || (_str->len < c_str_len))
+	u32 c_str_size = cstr_size(b);
+	if((_str == 0) || (c_str_size == 0) || (_str->size < c_str_size))
 	{
 		return false;
 	}
 	
-	for(u32 i = 0; i < _str->len; ++i)
+	for(u32 i = 0; i < _str->size; ++i)
 	{
 		u8 *buffer_as_data = (u8*)_str->buffer.data;
 		if(buffer_as_data[i] == b[0])
 		{
 			bool bContains = true;
 			// start comparing potential string
-			for(u32 j = 1; j < c_str_len; ++j)
+			for(u32 j = 1; j < c_str_size; ++j)
 			{
-				if(++i >= _str->len)
+				if(++i >= _str->size)
 				{
 					// _str has ended and the comparison could not end.
 					return false;
