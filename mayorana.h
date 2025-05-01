@@ -653,19 +653,7 @@ cstr_size(const char* _str)
 	return size - 1;
 }
 
-internal_f buffer_t 
-create_buffer_string(arena_t *_arena, u32 _size)
-{
-	
-	buffer_t result = create_buffer(_arena, _size);
-	u8 *data_as_u8 = (u8*)result.data;
-	
-	// Reset the memory to 0 since we are using arena allocator, we can run into garbage from previous written bytes.
-	memset(data_as_u8, 0, _size);
-	data_as_u8[result.size - 1] = '\0';
-	
-	return result;
-}
+
 
 
 typedef struct string_t
@@ -775,7 +763,12 @@ make_string(arena_t *_arena, u32 _size, const char* _content)
 	// null operator;
 	string_buffer_size += 1;
 	
-	buffer_t buffer_str = create_buffer_string(_arena, string_buffer_size);
+	buffer_t buffer_str = create_buffer(_arena, string_buffer_size);
+	u8 *data_as_u8 = (u8*)buffer_str.data;
+	
+	// Reset the memory to 0 since we are using arena allocator, we can run into garbage from previous written bytes.
+	memset(data_as_u8, 0, _size);
+	data_as_u8[buffer_str.size - 1] = '\0';
 	
 	
 	result.buffer = buffer_str;
