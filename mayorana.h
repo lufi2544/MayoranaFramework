@@ -550,6 +550,10 @@ typedef struct buffer_t
 } buffer_t;
 
 
+#define BUFFER_DATA(buffer, type, at) ((type*)buffer.data)[at]
+#define BUFFER(buffer, type) (type*)buffer.data
+
+
 global bool 
 is_in_bounds(buffer_t _buffer, u64 _at)
 {
