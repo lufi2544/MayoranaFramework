@@ -7,7 +7,7 @@ PROJECT_VERSION="1.0"
 # Set the C++ standard and compiler flags
 CXX_STANDARD=17
 DEBUG_FLAGS="-g -arch arm64"  # For generating debug information
-PROFILE_FLAGS="-DPROFILER_PROJECT=1"  # Define the profiler project
+FRAMEWORK_FLAGS="-DMAYORANA"  # Define the profiler project
 
 # Set the compiler
 CXX=clang++
@@ -16,7 +16,9 @@ CXX=clang++
 SOURCE_DIR="source"
 
 # Define the source file
-SOURCE_FILE="source/main.cpp"
+SOURCE_FILE="${SOURCE_DIR}/mayorana.cpp"
+
+TESTS_DIR="tests"
 
 # Create an output directory for the executable
 OUTPUT_DIR="./bin"
@@ -24,7 +26,7 @@ mkdir -p $OUTPUT_DIR
 
 # Compile the source file into an object file
 OBJECT_FILE="${OUTPUT_DIR}/main.o"
-$CXX -arch arm64 -std=c++$CXX_STANDARD $DEBUG_FLAGS $PROFILE_FLAGS -I$SOURCE_DIR -I$INCLUDE_DIR -I$PART2_INCLUDE_DIR -c $SOURCE_FILE -o $OBJECT_FILE
+$CXX -arch arm64 -std=c++$CXX_STANDARD $DEBUG_FLAGS $FRAMEWORK_FLAGS -I$SOURCE_DIR -I$INCLUDE_DIR -I$PART2_INCLUDE_DIR -I$TESTS_DIR -c $SOURCE_FILE -o $OBJECT_FILE
 
 # Check if the compilation was successful
 if [ $? -ne 0 ]; then

@@ -143,6 +143,7 @@ mayorana_memory_init()
 global void
 mayorana_shutdown()
 {
+#if defined(_WIN32)
 	if(g_memory.permanent.data)
 	{
 		VirtualFree(g_memory.permanent.data, 0, MEM_RELEASE);
@@ -152,6 +153,22 @@ mayorana_shutdown()
 	{
 		VirtualFree(g_memory.transient.data, 0, MEM_RELEASE);
 	}
+    
+#elif defined(__APPLE__)
+    
+    if (munmap(g_memory.permanent.data, g_memory.permanent.size) != 0) 
+    {
+        MAYORANA_LOG("Error: mmap failed for permanent memory");
+    }
+    
+    if (munmap(g_memory.transient.data, g_memory.transient.size) != 0) 
+    {
+        MAYORANA_LOG("Error: mmap failed for transient memory");
+    }
+    
+#else
+#pragma error "Platform not implemented for Mayorana Shutdown"
+#endif // PLATFORMS IMPLEMENTATION
 }
 
 
@@ -253,7 +270,7 @@ _push_size(arena_t *_arena, u64 _size)
         
         assert(false);
     }
-       
+    
     u8* data = _arena->data + _arena->used;
     _arena->used += _size;
     
@@ -335,7 +352,7 @@ LIST_FOREACH(type, value, list) \
 { \
 if(it->next_sibling == 0)\
 {\
-	printf(format "\n", ##__VA_ARGS__);\
+printf(format "\n", ##__VA_ARGS__);\
 }\
 else\
 {\
@@ -708,14 +725,14 @@ typedef struct string_t
 	
 	bool contains(const char* b)
 	{
-		string_contains(this, b);
+		return string_contains(this, b);
 	}
 	
 	void print()
 	{
 		print_string(this);
 	}
-			
+    
 #endif // __cplusplus
 	
 } string_t;
