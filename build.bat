@@ -7,7 +7,7 @@ set SRC_DIR=%~dp0
 set TESTS_DIR=%SRC_DIR%/tests
 set BIN_DIR=bin
 set CFLAGS=/std:c17 /Zi
-set MAIN_FILE=%SRC_DIR%/main.cpp
+set MAIN_FILE=%SRC_DIR%/mayorana.cpp
 set FLAGS=MAYORANA
 if not exist %BIN_DIR% mkdir %BIN_DIR%
 

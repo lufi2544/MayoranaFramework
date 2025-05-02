@@ -1,9 +1,5 @@
 
-
-
 #ifdef MAYORANA
-
-
 #include <cstdio>
 
 #define DOCTEST_CONFIG_IMPLEMENT
