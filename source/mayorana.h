@@ -38,7 +38,7 @@ typedef float f32;
 typedef double f64;
 
 #define global static
-#define global_def static
+#define global_f static
 #define local static
 #define internal_f static
 
@@ -506,7 +506,7 @@ merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
 }
 
 
-global_def void
+global_f void
 merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 {
 	list_node_t *head = *_head_ref;
