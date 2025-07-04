@@ -76,4 +76,4 @@ TEST_CASE("Free Buffer")
 }
 
 
-TEST_SUITE_END();
+TEST_SUITE_END;

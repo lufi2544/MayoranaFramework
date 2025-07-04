@@ -31,3 +31,5 @@ TEST_CASE("Create String, Literal + Ready to be expanded")
 {	
 	// TODO IMPLEMENT
 }
+
+TEST_SUITE_END;

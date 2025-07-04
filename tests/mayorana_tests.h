@@ -3,3 +3,4 @@
 
 #include "buffer_tests.cpp"
 #include "string_tests.cpp"
+#include "thread_tests.cpp"

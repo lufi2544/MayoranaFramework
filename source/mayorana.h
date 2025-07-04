@@ -897,3 +897,52 @@ global void print_string(string_t *string)
 	u8 *buffer_as_data = (u8*)string->buffer.data;
 	printf("%s \n", buffer_as_data);
 }
+
+
+#ifdef __cplusplus
+
+#include <thread>
+
+/////////////////////////
+//// Multi-Threading
+/////////////////////////
+
+typedef std::thread thread_t;
+
+// Converts an LValue Ref to an RValue Ref.
+template<typename T>
+std::remove_reference_t<T>&& Move(T& val)
+{
+	return std::move(val);
+}
+
+// NOTE: PART Multi-Threading
+class thread_guard_t
+{
+	public:
+	thread_guard_t(thread_t&& _r_thread)
+	{
+		this_thread = Move(_r_thread);
+	}
+	
+	// copy const
+	thread_guard_t (thread_guard_t const&) = delete;
+	
+	// operator =
+	thread_guard_t operator=(thread_guard_t const&) = delete;
+	
+	~thread_guard_t()
+	{
+		if (this_thread.joinable())
+		{
+			this_thread.join();
+		}
+	}
+	
+	private:
+	thread_t this_thread;
+};
+
+
+#endif // __cplusplus
+
