@@ -27,8 +27,6 @@ TEST_CASE("Create String, Literal")
 	
 }
 
-
-
 TEST_CASE("Create String, Literal + Ready to be expanded")
 {	
 	// TODO IMPLEMENT

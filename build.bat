@@ -3,8 +3,8 @@
 
 
 :: Set variables
-set SRC_DIR=%~dp0
-set TESTS_DIR=%SRC_DIR%/tests
+set SRC_DIR=%~dp0/source
+set TESTS_DIR=%~dp0/tests
 set BIN_DIR=bin
 set CFLAGS=/std:c17 /Zi
 set MAIN_FILE=%SRC_DIR%/mayorana.cpp
