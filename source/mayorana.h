@@ -536,7 +536,7 @@ cstr_len(const char* _str);
 ///// BUFFER FORWARD DECLARATIONS
 
 global bool buffer_is_equal(struct buffer_t a, struct buffer_t b);
-global void buffer_copy_deep(struct buffer_t *_src, struct buffer_t *_dest);
+global void buffer_copy_deep(const struct buffer_t *_src, struct buffer_t *_dest);
 
 /////
 
@@ -580,7 +580,7 @@ is_in_bounds(buffer_t _buffer, u64 _at)
 }
 
 global_f void
-buffer_copy_deep(buffer_t *_src, buffer_t *_dest)
+buffer_copy_deep(const buffer_t *_src, buffer_t *_dest)
 {
 	assert(_dest->size <= _src->size);
 	memcpy(_src->data, _dest->data, _dest->size);
@@ -683,6 +683,8 @@ cstr_size(const char* _str)
 }
 
 
+/// FORWARD DECLARATIONS ///
+global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
 
 
 typedef struct string_t
@@ -693,8 +695,13 @@ typedef struct string_t
 #ifdef __cplusplus	
 	
 	
-	string_t() = default;
-	string_t(string_t const& l_value) = default;
+	string_t() = default;		
+	
+	string_t(string_t const& _other)
+	{
+		this->buffer = _other.buffer;
+		this->size = _other.size;
+	}
 	
 	string_t(string_t&& r_value)
 	{
@@ -708,6 +715,13 @@ typedef struct string_t
 		r_value.size = 0;
 	}
 	
+	// Use the copy constructor or the RValue move constructor in stead.ks
+	inline string_t operator=(string_t const& _other)
+	{		
+		*this = _other;
+		return *this;
+	}; 
+	
 	inline string_t operator= (string_t&& r_value)
 	{
 		this->buffer = r_value.buffer;
@@ -715,6 +729,8 @@ typedef struct string_t
 		r_value.buffer.data = 0;
 		r_value.buffer.size = 0;
 		r_value.size = 0;
+		
+		return *this;
 	}		
 	
     // Compare with C string
@@ -872,7 +888,7 @@ string_push_char(string_t *_str, u8 character)
 }
 
 global_f string_t
-string_copy_deep(arena_t *_arena, string_t *_other)
+string_copy_deep(arena_t *_arena, const string_t *_other)
 {
 	string_t result;
 	buffer_t this_new_buffer;
