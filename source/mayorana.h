@@ -536,6 +536,7 @@ cstr_len(const char* _str);
 ///// BUFFER FORWARD DECLARATIONS
 
 global bool buffer_is_equal(struct buffer_t a, struct buffer_t b);
+global void buffer_copy_deep(struct buffer_t *_src, struct buffer_t *_dest);
 
 /////
 
@@ -576,6 +577,13 @@ is_in_bounds(buffer_t _buffer, u64 _at)
 {
 	b32 result = (_at < _buffer.size);
 	return result;
+}
+
+global_f void
+buffer_copy_deep(buffer_t *_src, buffer_t *_dest)
+{
+	assert(_dest->size <= _src->size);
+	memcpy(_src->data, _dest->data, _dest->size);
 }
 
 global buffer_t
@@ -683,6 +691,31 @@ typedef struct string_t
     u32 size;
 	
 #ifdef __cplusplus	
+	
+	
+	string_t() = default;
+	string_t(string_t const& l_value) = default;
+	
+	string_t(string_t&& r_value)
+	{
+		this->buffer = r_value.buffer;
+		this->size = r_value.size;
+		
+		// TODO function to reset buffer.
+		r_value.buffer.data = 0;
+		r_value.buffer.size = 0;
+		
+		r_value.size = 0;
+	}
+	
+	inline string_t operator= (string_t&& r_value)
+	{
+		this->buffer = r_value.buffer;
+		this->size = r_value.size;
+		r_value.buffer.data = 0;
+		r_value.buffer.size = 0;
+		r_value.size = 0;
+	}		
 	
     // Compare with C string
     inline bool operator==(const char* other) const 
@@ -827,6 +860,24 @@ string_push_char(string_t *_str, u8 character)
 	
     buffer_as_data[_str->size++] = character;
     buffer_as_data[_str->size] = '\0';		
+}
+
+global_f string_t
+string_copy_deep(arena_t *_arena, string_t *_other)
+{
+	string_t result;
+	buffer_t this_new_buffer;
+	
+	void* new_data = _push_size(_arena, _other->buffer.size);
+	this_new_buffer.data = new_data;
+	this_new_buffer.size = _other->buffer.size;
+	
+	buffer_copy_deep(&_other->buffer, &this_new_buffer);
+	
+	result.buffer = this_new_buffer;
+	result.size = _other->size;
+	
+	return result;	
 }
 
 // TODO TEST
