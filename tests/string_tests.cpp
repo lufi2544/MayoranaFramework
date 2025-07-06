@@ -32,4 +32,19 @@ TEST_CASE("Create String, Literal + Ready to be expanded")
 	// TODO IMPLEMENT
 }
 
+
+TEST_CASE("String, Deep Copy")
+{
+	SCRATCH();
+	
+	string_t s = STRING_V(temp_arena, "Hello");
+	string_t a = string_copy_deep(temp_arena, &s);
+	
+	u8* buff = (u8*)a.buffer.data;
+	buff[0] = 'J';
+	
+	CHECK_NE(s, a);
+	
+}
+
 TEST_SUITE_END;

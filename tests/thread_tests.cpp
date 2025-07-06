@@ -1,7 +1,6 @@
 
 TEST_SUITE_BEGIN("Multithreading");
 
-
 global int aa = 0;
 void TestFunction(int *a, int val)
 {

@@ -609,7 +609,7 @@ create_buffer(arena_t *_arena, u64 _size)
 
 global bool 
 buffer_is_equal(buffer_t a, buffer_t b)
-{	
+{
 	if(a.size != b.size)
 	{
 		return false;
@@ -726,7 +726,16 @@ typedef struct string_t
     // Compare with another string_t
     inline bool operator==(const string_t& other) const 
 	{
+		// TODO This is not exactly right, since 
+		// we can have strings with buffers with different sizes and the content is the same
+		// make this content sensitive.
         return buffer == other.buffer;
+    }
+	
+	inline bool operator!=(const string_t& other) const 
+	{
+		
+		return !operator==(other);
     }
 	
     // Char access

@@ -11,6 +11,6 @@
 int main (int arg_num, char** args)
 { 
 	mayorana_init();
-	return doctest::Context(arg_num, args).run();
+	return doctest::Context(arg_num, args).run();			
  }
  #endif // MAYORANA
