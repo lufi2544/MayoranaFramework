@@ -962,6 +962,7 @@ global void print_string(string_t *string)
 #ifdef __cplusplus
 
 #include <thread>
+#include <mutex>
 
 /////////////////////////
 //// Multi-Threading
@@ -1003,6 +1004,37 @@ class thread_guard_t
 	thread_t this_thread;
 };
 
+
+/////// MUTUAL EXCLUSIVE OBJECT ///////////
+
+typedef std::mutex mutex_t;
+
+class critical_section_t
+{
+	public:
+	critical_section_t() = default;
+	
+	critical_section_t(critical_section_t const&) = delete;
+	critical_section_t& operator =(critical_section_t const&) = delete;
+	critical_section_t(critical_section_t&& _other) = delete;
+	
+	void lock()
+	{
+		this_mutex.lock();
+	}
+	
+	void unlock()
+	{
+		this_mutex.unlock();
+	}
+	
+	bool try_lock()
+	{
+		return this_mutex.try_lock();
+	}
+	
+	mutex_t this_mutex;
+};
 
 #endif // __cplusplus
 
