@@ -2,6 +2,7 @@
 
 TESTS:
 - Write Tests for string_t
+	- Write tests for Deep copy and swallow copy.
 - Write Tests for list_t
 
 - Write tests for arena
