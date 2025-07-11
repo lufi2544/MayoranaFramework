@@ -1049,6 +1049,11 @@ class critical_section_t
 		return this_mutex.try_lock();
 	}
 	
+	mutex_t& mutex()
+	{
+		return this_mutex;
+	}
+	
 	mutex_t this_mutex;
 };
 
