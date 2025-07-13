@@ -986,7 +986,7 @@ global void print_string(string_t *string)
 
 typedef std::thread thread_t;
 
-#define THREAD(name, ...) thread_t t_##name(##__VA_ARGS__)
+#define THREAD(name, ...) thread_t name(##__VA_ARGS__)
 
 // Converts an LValue Ref to an RValue Ref.
 template<typename T>
