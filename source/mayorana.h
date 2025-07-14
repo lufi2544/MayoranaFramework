@@ -284,9 +284,9 @@ _push_size(arena_t *_arena, u64 _size)
 
 #ifdef __cplusplus
 
-#define CONTROLLED_SCRATCH() \
+#define CONTROLLED_SCRATCH(arena) \
 scratch_t scratch;       \
-scratch_begin(&scratch, false);    \
+scratch_begin(&scratch, arena, false);    \
 arena_t* temp_arena = scratch.arena; \
 
 #endif // __cplusplus
@@ -812,6 +812,8 @@ typedef struct string_t
 #define STRING_L(arena, size) make_string(arena, size, 0)
 // string verbal
 #define STRING_V(arena, content) make_string(arena, 0, content)
+
+// TODO: Figuring out a way of handling VL strings after creation.
 // string verbal size, ready to be expanded
 #define STRING_VL(arena, size, content) make_string(arena, size, content)
 
@@ -855,7 +857,7 @@ make_string(arena_t *_arena, u32 _size, const char* _content)
 	
 	if(content_size > 0)
 	{
-		assert(content_size + 1 == buffer_str.size);
+		assert(content_size + 1 <= buffer_str.size);
 		for(u32 i = 0; i < content_size; ++i)
 		{
 			u8 *buffer_as_data = (u8*)buffer_str.data;
@@ -979,6 +981,7 @@ global void print_string(string_t *string)
 
 #include <thread>
 #include <mutex>
+#include <shared_mutex>
 
 /////////////////////////
 //// Multi-Threading
@@ -1027,6 +1030,10 @@ class thread_guard_t
 
 typedef std::mutex mutex_t;
 
+
+/**
+ * Custom mutex wrapper, lock_guard like.
+ */
 class critical_section_t
 {
 	public:
@@ -1035,6 +1042,11 @@ class critical_section_t
 	critical_section_t(critical_section_t const&) = delete;
 	critical_section_t& operator =(critical_section_t const&) = delete;
 	critical_section_t(critical_section_t&& _other) = delete;
+	
+	~critical_section_t()
+	{
+		unlock();
+	}
 	
 	void lock()
 	{
