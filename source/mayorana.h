@@ -987,9 +987,9 @@ global void print_string(string_t *string)
 //// Multi-Threading
 /////////////////////////
 
-typedef std::thread thread_t;
+typedef std::thread mthread_t;
 
-#define THREAD(name, ...) thread_t name(##__VA_ARGS__)
+#define THREAD(name, ...) mthread_t name(__VA_ARGS__)
 
 // Converts an LValue Ref to an RValue Ref.
 template<typename T>
@@ -1002,7 +1002,7 @@ std::remove_reference_t<T>&& Move(T& val)
 class thread_guard_t
 {
 	public:
-	thread_guard_t(thread_t&& _r_thread)
+	thread_guard_t(mthread_t&& _r_thread)
 	{
 		this_thread = Move(_r_thread);
 	}
@@ -1022,7 +1022,7 @@ class thread_guard_t
 	}
 	
 	private:
-	thread_t this_thread;
+	mthread_t this_thread;
 };
 
 
