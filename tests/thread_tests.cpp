@@ -12,7 +12,7 @@ TEST_CASE("Thread guard")
 	int a = 0;
 	int val = 20;
 	{
-		thread_t thread(&TestFunction, &a, val);
+		mthread_t thread(&TestFunction, &a, val);
 		thread_guard_t t_guard(Move(thread));
 	}
 	
