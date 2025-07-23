@@ -9,5 +9,6 @@ TESTS:
 
 MAIN:
 - Create a string_t from this plain buffer of data.
+- Finish the string framework string += string.
 - Maybe adding array_t? as it would be just a wrapper.
 - Add verbosity for the logs.
