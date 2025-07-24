@@ -718,7 +718,9 @@ typedef struct string_t
 	// Use the copy constructor or the RValue move constructor in stead.ks
 	inline string_t operator=(string_t const& _other)
 	{		
-		*this = _other;
+		this->buffer = _other.buffer;
+		this->size = _other.size;
+		
 		return *this;
 	}; 
 	
@@ -784,6 +786,11 @@ typedef struct string_t
 	bool contains(const char* b)
 	{
 		return string_contains(this, b);
+	}
+	
+	bool is_empty()
+	{
+		return size == 0;
 	}
 	
 	void print()
@@ -979,13 +986,100 @@ global void print_string(string_t *string)
 
 #ifdef __cplusplus
 
+
 #include <thread>
 #include <mutex>
 #include <shared_mutex>
 
+#ifdef _WIN32
+#include <processthreadsapi.h>
+#endif // __WIN32
+
 /////////////////////////
 //// Multi-Threading
 /////////////////////////
+
+
+typedef void(*thread_function_t)(void*);
+
+struct thread_args
+{
+	string_t thread_name;
+	void* user_data;
+	thread_function_t user_function;
+};
+
+DWORD thread_main(LPVOID _data)
+{
+	thread_args* args = (thread_args*)_data;
+	args->user_function(args->user_data);
+	
+	if (!args->thread_name.is_empty())
+	{
+		
+#ifdef _WIN32
+		wchar_t buffer[256] = {};  // fixed buffer, adjust size as needed
+		int count = MultiByteToWideChar(CP_UTF8, 0, STRING_CONTENT(args->thread_name), -1, buffer, 256);
+		SetThreadDescription(GetCurrentThread(), buffer);
+#endif // _WIN32
+		
+	}
+	
+	return 0;
+}
+
+class mythread_t
+{
+public:
+	mythread_t() = default;
+	mythread_t(arena_t* _arena, string_t _name, thread_function_t _user_function, void* _data = nullptr)
+	{
+		arena = _arena;
+		thread_function = _user_function;
+		data = _data;
+		name = _name;		
+		
+		start();
+	};
+	
+	void start()
+	{
+		if (!thread_function)
+		{
+			MAYORANA_LOG("There is no function assocaited with this thread, check it...");
+		}
+		
+		
+		thread_args* args = (thread_args*)push_size(arena, sizeof(thread_args));		
+		args->user_data = data;
+		args->user_function = thread_function;
+		args->thread_name = name;
+		
+		LPDWORD this_id = 0;
+		Handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
+		if(Handle != 0)
+		{
+			id = this_id;
+		}
+	}
+	
+	void join()
+	{
+		WaitForSingleObject(Handle, INFINITE);
+	}
+	
+	
+	LPDWORD id = 0;
+	HANDLE Handle = 0;
+	string_t name;
+	
+	thread_function_t thread_function;
+	void* data = 0;
+	
+	arena_t *arena = 0;
+};
+
+
 
 typedef std::thread mthread_t;
 
