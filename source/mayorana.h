@@ -81,6 +81,7 @@ typedef struct memory_t
 {
     arena_t transient;
     arena_t permanent;
+	arena_t threads;
     
 } memory_t;
 
@@ -89,6 +90,10 @@ global memory_t g_memory;
 #ifndef MAYORANA_MEMORY_TRANSIENT_SIZE
 #define MAYORANA_MEMORY_TRANSIENT_SIZE Megabyte(100)
 #endif // MAYORANA_MEMORY_TRANSIENT_SIZE
+
+#ifndef MAYORANA_MEMORY_THREAD_ARENA_SIZE
+#define MAYORANA_MEMORY_THREAD_ARENA_SIZE Megabyte(500)
+#endif //MAYORANA_MEMORY_THREAD_ARENA_SIZE
 
 #ifndef MAYORANA_MEMORY_PERMANENT_SIZE
 #define MAYORANA_MEMORY_PERMANENT_SIZE Gigabyte(1)
@@ -128,6 +133,7 @@ mayorana_memory_init()
 #ifdef _WIN32
 	g_memory.transient.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.permanent.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	g_memory.threads.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_THREAD_ARENA_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	
 	MAYORANA_LOG("-- Memory Init Windows --");
 #endif // _WIN32
@@ -135,8 +141,9 @@ mayorana_memory_init()
 	
 	g_memory.transient.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
     g_memory.permanent.size = MAYORANA_MEMORY_PERMANENT_SIZE;
+    g_memory.threads.size = MAYORANA_MEMORY_THREAD_ARENA_SIZE;
 	
-	MAYORANA_LOG("\n Memory: \n Arena transient: %llu \n Arena permanent: %llu \n ----  ---- \n", g_memory.transient.size, g_memory.permanent.size);	
+	MAYORANA_LOG("\n Memory: \n Arena transient: %llu \n Arena permanent: %llu \n Arena Multi-Thread: %llu \n  ----  ---- \n", g_memory.transient.size, g_memory.permanent.size, g_memory.threads.size);	
 }
 
 
@@ -297,7 +304,14 @@ scratch_t scratch;       \
 scratch_begin(&scratch, &g_memory.transient, true);    \
 arena_t* temp_arena = scratch.arena; \
 
+// Creating memory space for the threads memory that is going to be used.
+#define THREADING_SCRATCH() \
+scratch_t t_scratch;       \
+scratch_begin(&t_scratch, &g_memory.threads, true);    \
+arena_t* threads_arena = t_scratch.arena; \
+
 #define SCRATCH_END() scratch_end(&scratch);
+#define THREADING_SCRATCH_END() scratch_end(&t_scratch);
 
 
 
@@ -995,12 +1009,22 @@ global void print_string(string_t *string)
 #include <processthreadsapi.h>
 #endif // __WIN32
 
+
+// Converts an LValue Ref to an RValue Ref.
+template<typename T>
+std::remove_reference_t<T>&& Move(T& val)
+{
+	return std::move(val);
+}
+
 /////////////////////////
 //// Multi-Threading
 /////////////////////////
+ 
+#include <functional>
+//typedef void(*thread_function_t)(void);
 
-
-typedef void(*thread_function_t)(void*);
+typedef std::function<void()> thread_function_t;
 
 struct thread_args
 {
@@ -1009,11 +1033,16 @@ struct thread_args
 	thread_function_t user_function;
 };
 
+// We are supposed to pass-in this but the lambda should be allocated in the thread_arena.
+void lambda_executor(void *lambda_ptr)
+{
+	thread_function_t *fn = (thread_function_t*)lambda_ptr;
+	(*fn)();
+}
+
 DWORD thread_main(LPVOID _data)
 {
-	thread_args* args = (thread_args*)_data;
-	
-	
+	thread_args* args = (thread_args*)_data;	
 	if (!args->thread_name.is_empty())
 	{
 		
@@ -1025,8 +1054,7 @@ DWORD thread_main(LPVOID _data)
 		
 	}
 	
-	args->user_function(args->user_data);
-	
+	args->user_function();	
 	
 	return 0;
 }
@@ -1049,21 +1077,8 @@ public:
 	}
 	
 	mythread_t(mythread_t&& rvalue)
-	{
-		arena = rvalue.arena;
-		thread_function = rvalue.thread_function;
-		data = rvalue.data;
-		name = rvalue.name;
-		id = rvalue.id;
-		handle = rvalue.handle;
-		
-		rvalue.arena = 0;
-		rvalue.thread_function = 0;
-		rvalue.data = 0;
-		rvalue.name = string_t();
-		rvalue.handle = 0;
-		rvalue.id = 0;
-		
+	{		
+		*this = Move(rvalue);
 	}
 	
 	mythread_t& operator= (mythread_t&& rvalue)
@@ -1135,13 +1150,6 @@ public:
 typedef std::thread mthread_t;
 
 #define THREAD(name, ...) mthread_t name(__VA_ARGS__)
-
-// Converts an LValue Ref to an RValue Ref.
-template<typename T>
-std::remove_reference_t<T>&& Move(T& val)
-{
-	return std::move(val);
-}
 
 // NOTE: PART Multi-Threading
 class thread_guard_t
