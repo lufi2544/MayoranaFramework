@@ -1012,7 +1012,7 @@ struct thread_args
 DWORD thread_main(LPVOID _data)
 {
 	thread_args* args = (thread_args*)_data;
-	args->user_function(args->user_data);
+	
 	
 	if (!args->thread_name.is_empty())
 	{
@@ -1025,6 +1025,9 @@ DWORD thread_main(LPVOID _data)
 		
 	}
 	
+	args->user_function(args->user_data);
+	
+	
 	return 0;
 }
 
@@ -1032,6 +1035,9 @@ class mythread_t
 {
 public:
 	mythread_t() = default;
+	mythread_t(mythread_t const&) = delete;	
+	mythread_t& operator=(mythread_t const&) = delete;
+	
 	mythread_t(arena_t* _arena, string_t _name, thread_function_t _user_function, void* _data = nullptr)
 	{
 		arena = _arena;
@@ -1040,7 +1046,55 @@ public:
 		name = _name;		
 		
 		start();
-	};
+	}
+	
+	mythread_t(mythread_t&& rvalue)
+	{
+		arena = rvalue.arena;
+		thread_function = rvalue.thread_function;
+		data = rvalue.data;
+		name = rvalue.name;
+		id = rvalue.id;
+		handle = rvalue.handle;
+		
+		rvalue.arena = 0;
+		rvalue.thread_function = 0;
+		rvalue.data = 0;
+		rvalue.name = string_t();
+		rvalue.handle = 0;
+		rvalue.id = 0;
+		
+	}
+	
+	mythread_t& operator= (mythread_t&& rvalue)
+	{
+		arena = rvalue.arena;
+		thread_function = rvalue.thread_function;
+		data = rvalue.data;
+		name = rvalue.name;
+		id = rvalue.id;
+		handle = rvalue.handle;
+		
+		
+		rvalue.arena = 0;
+		rvalue.thread_function = 0;
+		rvalue.data = 0;
+		rvalue.name = string_t();
+		rvalue.handle = 0;
+		rvalue.id = 0;
+		
+		return *this;
+	}
+	
+	~mythread_t()
+	{
+		if(handle)
+		{
+			CloseHandle(handle);
+			handle = 0;
+		}
+				
+	}
 	
 	void start()
 	{
@@ -1049,15 +1103,14 @@ public:
 			MAYORANA_LOG("There is no function assocaited with this thread, check it...");
 		}
 		
-		
 		thread_args* args = (thread_args*)push_size(arena, sizeof(thread_args));		
 		args->user_data = data;
 		args->user_function = thread_function;
 		args->thread_name = name;
 		
 		LPDWORD this_id = 0;
-		Handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
-		if(Handle != 0)
+		handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
+		if(handle != 0)
 		{
 			id = this_id;
 		}
@@ -1065,12 +1118,12 @@ public:
 	
 	void join()
 	{
-		WaitForSingleObject(Handle, INFINITE);
+		WaitForSingleObject(handle, INFINITE);
 	}
 	
 	
 	LPDWORD id = 0;
-	HANDLE Handle = 0;
+	HANDLE handle = 0;
 	string_t name;
 	
 	thread_function_t thread_function;
@@ -1078,8 +1131,6 @@ public:
 	
 	arena_t *arena = 0;
 };
-
-
 
 typedef std::thread mthread_t;
 
@@ -1126,43 +1177,43 @@ typedef std::mutex mutex_t;
 
 
 /**
- * Custom mutex wrapper, lock_guard like.
+ * Custom Critical Section Wrapper wrapper, lock_guard like.
+*
+*  TODO: What if we delete a crit section and we have not unlocked when locked.???
+*
  */
 class critical_section_t
 {
 	public:
-	critical_section_t() = default;
+	critical_section_t()
+	{
+		InitializeCriticalSection(&this_section);
+	};
 	
 	critical_section_t(critical_section_t const&) = delete;
 	critical_section_t& operator =(critical_section_t const&) = delete;
-	critical_section_t(critical_section_t&& _other) = delete;
+	critical_section_t(critical_section_t&& _rvalue) = delete;
 	
 	~critical_section_t()
 	{
-		unlock();
+		DeleteCriticalSection(&this_section);
 	}
 	
 	void lock()
 	{
-		this_mutex.lock();
+		EnterCriticalSection(&this_section);
 	}
 	
 	void unlock()
 	{
-		this_mutex.unlock();
+		LeaveCriticalSection(&this_section);
 	}
 	
-	bool try_lock()
-	{
-		return this_mutex.try_lock();
-	}
+
 	
-	mutex_t& mutex()
-	{
-		return this_mutex;
-	}
-	
-	mutex_t this_mutex;
+#ifdef _WIN32
+	CRITICAL_SECTION this_section;
+#endif // _WIN32
 };
 
 #endif // __cplusplus
