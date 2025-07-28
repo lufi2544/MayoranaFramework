@@ -1066,11 +1066,10 @@ public:
 	mythread_t(mythread_t const&) = delete;	
 	mythread_t& operator=(mythread_t const&) = delete;
 	
-	mythread_t(arena_t* _arena, string_t _name, thread_function_t _user_function, void* _data = nullptr)
+	mythread_t(arena_t* _arena, string_t _name, thread_function_t _user_function)
 	{
 		arena = _arena;
 		thread_function = _user_function;
-		data = _data;
 		name = _name;		
 		
 		start();
@@ -1085,7 +1084,6 @@ public:
 	{
 		arena = rvalue.arena;
 		thread_function = rvalue.thread_function;
-		data = rvalue.data;
 		name = rvalue.name;
 		id = rvalue.id;
 		handle = rvalue.handle;
@@ -1093,7 +1091,6 @@ public:
 		
 		rvalue.arena = 0;
 		rvalue.thread_function = 0;
-		rvalue.data = 0;
 		rvalue.name = string_t();
 		rvalue.handle = 0;
 		rvalue.id = 0;
@@ -1119,7 +1116,6 @@ public:
 		}
 		
 		thread_args* args = (thread_args*)push_size(arena, sizeof(thread_args));		
-		args->user_data = data;
 		args->user_function = thread_function;
 		args->thread_name = name;
 		
@@ -1141,9 +1137,7 @@ public:
 	HANDLE handle = 0;
 	string_t name;
 	
-	thread_function_t thread_function;
-	void* data = 0;
-	
+	thread_function_t thread_function;	
 	arena_t *arena = 0;
 };
 
