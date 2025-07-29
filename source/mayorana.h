@@ -1177,7 +1177,7 @@ typedef std::mutex mutex_t;
  */
 class critical_section_t
 {
-	public:
+public:
 	critical_section_t()
 	{
 		InitializeCriticalSection(&this_section);
@@ -1197,12 +1197,18 @@ class critical_section_t
 		EnterCriticalSection(&this_section);
 	}
 	
+	// True if the lock has been acquired.
+	bool try_lock()
+	{
+		return !(TryEnterCriticalSection(&this_section) == 0);
+	}
+	
 	void unlock()
 	{
 		LeaveCriticalSection(&this_section);
 	}
 	
-
+private:
 	
 #ifdef _WIN32
 	CRITICAL_SECTION this_section;
@@ -1211,20 +1217,30 @@ class critical_section_t
 
 
 // Lock wrapper for critical sections to sync the access to shared data among different threads.
-struct scoped_lock_t
+class scoped_lock_t
 {
 public:
 	scoped_lock_t(critical_section_t *_section)
 	{
-		this_section = _section;		
-		this_section->lock();
-	}
+		this_section = _section;
+		bOwnsLock = this_section->try_lock();
+	}			
 	
 	~scoped_lock_t()
+	{
+		unlock();
+	}
+	
+	void unlock()
 	{
 		this_section->unlock();
 	}
 	
+	public:
+	
+	bool bOwnsLock = false;
+	
+	private:
 	critical_section_t *this_section;
 };
 
