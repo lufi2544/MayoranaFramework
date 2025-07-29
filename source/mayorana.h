@@ -201,28 +201,21 @@ typedef struct scratch_t
 	
 	/** Cached memory ptr from the parent arena when created this scratch, when ended, the parent arena is reset to this. */
     u64 cached_parent_used;
-	
-	/** If true, in C++ the scratch gets reset when destroyed */
-    bool bStack;
-	
+		
 #ifdef __cplusplus
 	
 	// C++ constructor/destructor
 	
-    scratch_t(bool _bStack = true) 
+    scratch_t() 
 	{
         arena = &g_memory.transient;
         cached_parent_used = arena->used;
-        bStack = _bStack;
         arena->temp_count++;
     }
 	
     ~scratch_t() 
 	{
-        if (bStack) 
-		{
-            _scratch_end(this);
-        }
+		_scratch_end(this);        
     }
 #endif
 	
@@ -234,11 +227,10 @@ extern "C" {
 #endif //__cplusplus
 	
 	internal_f void
-		scratch_begin(scratch_t *_scratch, arena_t *_arena, bool _bStack)
+		scratch_begin(scratch_t *_scratch, arena_t *_arena)
 	{
 		_scratch->arena = _arena;
 		_scratch->cached_parent_used = _scratch->arena->used;
-		_scratch->bStack = _bStack;
 		_scratch->arena->temp_count++;	
 	}
 	
@@ -293,7 +285,7 @@ _push_size(arena_t *_arena, u64 _size)
 
 #define CONTROLLED_SCRATCH(arena) \
 scratch_t scratch;       \
-scratch_begin(&scratch, arena, false);    \
+scratch_begin(&scratch, arena);    \
 arena_t* temp_arena = scratch.arena; \
 
 #endif // __cplusplus
@@ -301,13 +293,13 @@ arena_t* temp_arena = scratch.arena; \
 
 #define SCRATCH() \
 scratch_t scratch;       \
-scratch_begin(&scratch, &g_memory.transient, true);    \
+scratch_begin(&scratch, &g_memory.transient);    \
 arena_t* temp_arena = scratch.arena; \
 
 // Creating memory space for the threads memory that is going to be used.
 #define THREADING_SCRATCH() \
 scratch_t t_scratch;       \
-scratch_begin(&t_scratch, &g_memory.threads, true);    \
+scratch_begin(&t_scratch, &g_memory.threads);    \
 arena_t* threads_arena = t_scratch.arena; \
 
 #define SCRATCH_END() scratch_end(&scratch);
@@ -1148,7 +1140,7 @@ typedef std::thread mthread_t;
 // NOTE: PART Multi-Threading
 class thread_guard_t
 {
-	public:
+public:
 	thread_guard_t(mthread_t&& _r_thread)
 	{
 		this_thread = Move(_r_thread);
@@ -1168,10 +1160,9 @@ class thread_guard_t
 		}
 	}
 	
-	private:
+private:
 	mthread_t this_thread;
 };
-
 
 /////// MUTUAL EXCLUSIVE OBJECT ///////////
 
@@ -1216,6 +1207,25 @@ class critical_section_t
 #ifdef _WIN32
 	CRITICAL_SECTION this_section;
 #endif // _WIN32
+};
+
+
+// Lock wrapper for critical sections to sync the access to shared data among different threads.
+struct scoped_lock_t
+{
+public:
+	scoped_lock_t(critical_section_t *_section)
+	{
+		this_section = _section;		
+		this_section->lock();
+	}
+	
+	~scoped_lock_t()
+	{
+		this_section->unlock();
+	}
+	
+	critical_section_t *this_section;
 };
 
 #endif // __cplusplus

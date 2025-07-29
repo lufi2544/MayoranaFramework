@@ -12,3 +12,7 @@ MAIN:
 - Finish the string framework string += string.
 - Maybe adding array_t? as it would be just a wrapper.
 - Add verbosity for the logs.
+
+
+Multithreading:
+- arena per thread.
