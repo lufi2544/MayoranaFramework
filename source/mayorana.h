@@ -826,6 +826,8 @@ typedef struct string_t
 // string verbal
 #define STRING_V(arena, content) make_string(arena, 0, content)
 
+#define STRING_C(arena, size, format, ...) make_string_from_c_char(arena, size, format, ##__VA_ARGS__##)
+
 // TODO: Figuring out a way of handling VL strings after creation.
 // string verbal size, ready to be expanded
 #define STRING_VL(arena, size, content) make_string(arena, size, content)
@@ -883,7 +885,16 @@ make_string(arena_t *_arena, u32 _size, const char* _content)
 	return result;
 }
 
-
+global string_t
+make_string_from_c_char(arena_t *_arena, u32 _size, const char* _format, ...)
+{
+	char* c_str = (char*)_push_size(_arena, _size * sizeof(char));		
+	va_list args;
+	va_start(args, _format);
+	int chars_written = vsnprintf(c_str, _size, _format, args);
+	va_end(args);		
+	return STRING_V(_arena, c_str);
+}
 
 global void
 string_push_char(string_t *_str, u8 character)
@@ -1243,6 +1254,50 @@ public:
 	private:
 	critical_section_t *this_section;
 };
+
+
+///////////////////////////////////
+////////// Task Manager //////////
+
+
+/* The intention of this class is to have a manager that has differentworker threads that we can use to 
+ * assingn different tasks, by doing so, we can have 2 modes:
+ * 
+ * 1 - workers are sleeping and then we wake them up
+ * 2 - workers are spinning around and when a job is detected, they take the tasks.
+*/
+
+#include <vector>
+
+bool bJobsActive = true;
+
+void JobLoop()
+{
+	
+
+}
+
+class TaskManager
+{
+	public:
+	TaskManager() = default;
+	TaskManager(const TaskManager&) = delete;
+	TaskManager& operator = (const TaskManager&) = delete;
+	
+	/** Create the workers here. */
+	void init(arena_t *_arena, u32 _workers_num)
+	{
+		for(u32 i = 0; i < _workers_num; ++i)
+		{			
+			string_t name = STRING_C(_arena, 10, "worker%i", i);
+			mythread_t worker = mythread_t(_arena,  name, [](){ JobLoop(); });
+		}
+	}
+	
+	private:
+	std::vector<mythread_t> workers;
+};
+
 
 #endif // __cplusplus
 
