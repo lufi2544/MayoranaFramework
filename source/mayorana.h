@@ -1106,6 +1106,7 @@ public:
 		if(handle)
 		{
 			CloseHandle(handle);
+			printf("Closing Handle \n");
 			handle = 0;
 		}
 				
@@ -1268,36 +1269,105 @@ public:
 */
 
 #include <vector>
+#include <functional>
 
-bool bJobsActive = true;
+volatile bool bJobsActive = true;
 
-void JobLoop()
+void JobLoop(class job_manager_t *_manager);
+
+typedef std::function<void()> job_t;
+
+struct job_node_t
 {
-	
-
-}
-
-class TaskManager
-{
-	public:
-	TaskManager() = default;
-	TaskManager(const TaskManager&) = delete;
-	TaskManager& operator = (const TaskManager&) = delete;
-	
-	/** Create the workers here. */
-	void init(arena_t *_arena, u32 _workers_num)
-	{
-		for(u32 i = 0; i < _workers_num; ++i)
-		{			
-			string_t name = STRING_C(_arena, 10, "worker%i", i);
-			mythread_t worker = mythread_t(_arena,  name, [](){ JobLoop(); });
-		}
-	}
-	
-	private:
-	std::vector<mythread_t> workers;
+	job_t job;
+	s32 id = -1;
 };
 
+//// TODO, I have to reset the tail and head once the jobs have finished or find a way of resetting them, u32 wrapping?
+class job_manager_t
+{
+	public:
+	job_manager_t() = default;
+	job_manager_t(const job_manager_t&) = delete;
+	job_manager_t& operator = (const job_manager_t&) = delete;
+	
+	void init(arena_t *_arena, u32 _workers_num, u32 _max_jobs)
+	{
+		max_jobs = _max_jobs;
+		workers_num = _workers_num;
+		
+		// Jobs
+		jobs = (job_node_t*)push_size(_arena, sizeof(job_node_t) * max_jobs);
+		workers = (mythread_t*)push_size(_arena, sizeof(mythread_t) * workers_num);
+		
+		// Wokers
+		for(u32 i = 0; i < workers_num; ++i)
+		{
+			string_t name = STRING_C(_arena, 10, "worker%i", i);
+			workers[i] = mythread_t(_arena,  name, [this](){ JobLoop(this); });			
+		}
+	}
+		
+	void push_job(job_t _job)
+	{		
+		job_node_t node;
+		node.job = _job;
+		node.id = tail;
+		jobs[tail] = node;
+			
+		InterlockedIncrement(&tail);
+		InterlockedIncrement(&requested_jobs);
+	}
+	
+	void complete_job(job_node_t *_job)
+	{
+		printf("worker %i has finished the job \n", _job->id);
+		InterlockedIncrement(&completed_jobs);
+	}
+	
+	bool is_queue_empty()
+	{
+		return requested_jobs == completed_jobs && tail == head;
+	}
+	
+	
+	// Worker threads
+	mythread_t *workers = 0;
+	u32 workers_num = 0;
+	
+	// Jobs
+	job_node_t *jobs = 0;
+	u32 max_jobs = 0;
+	volatile u32 head = 0;
+	volatile u32 tail = 0;
+	
+	volatile u32 requested_jobs = 0;
+	volatile u32 completed_jobs = 0;
+	
+};
+
+void JobLoop(class job_manager_t *_manager)
+{
+	while(bJobsActive)
+	{
+		if(!_manager->is_queue_empty())
+		{		
+			job_node_t* job_node = &_manager->jobs[_manager->head];
+			
+			/// TODO investigate why this crashed and rely on the tail and head.
+			if(job_node->job)
+			{
+				InterlockedIncrement(&_manager->head);
+				job_node->job();
+				_manager->complete_job(job_node);
+			}
+		}
+		else
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		}				
+	}
+}
 
 #endif // __cplusplus
 
