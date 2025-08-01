@@ -1350,8 +1350,9 @@ void JobLoop(class job_manager_t *_manager)
 {
 	while(bJobsActive)
 	{
+		MemoryBarrier();
 		if(!_manager->is_queue_empty())
-		{		
+		{
 			job_node_t* job_node = &_manager->jobs[_manager->head];
 			
 			/// TODO investigate why this crashed and rely on the tail and head.
