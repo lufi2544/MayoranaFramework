@@ -296,6 +296,12 @@ scratch_t scratch;       \
 scratch_begin(&scratch, &g_memory.transient);    \
 arena_t* temp_arena = scratch.arena; \
 
+
+#define S_SCRATCH(memory) \
+scratch_t scratch;       \
+scratch_begin(&scratch, &memory->transient);    \
+arena_t* temp_arena = scratch.arena; \
+
 // Creating memory space for the threads memory that is going to be used.
 #define THREADING_SCRATCH() \
 scratch_t t_scratch;       \
@@ -690,7 +696,7 @@ cstr_size(const char* _str)
 
 
 /// FORWARD DECLARATIONS ///
-global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
+//global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
 
 
 typedef struct string_t
