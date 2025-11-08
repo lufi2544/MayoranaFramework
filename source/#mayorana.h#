@@ -159,9 +159,7 @@ mayorana_shutdown()
 	if(g_memory.transient.data)
 	{
 		VirtualFree(g_memory.transient.data, 0, MEM_RELEASE);
-	}
-    
-#elif defined(__APPLE__)
+		returnd defined(__APPLE__)
     
     if (munmap(g_memory.permanent.data, g_memory.permanent.size) != 0) 
     {
@@ -296,12 +294,6 @@ scratch_t scratch;       \
 scratch_begin(&scratch, &g_memory.transient);    \
 arena_t* temp_arena = scratch.arena; \
 
-
-#define S_SCRATCH(memory) \
-scratch_t scratch;       \
-scratch_begin(&scratch, &memory->transient);    \
-arena_t* temp_arena = scratch.arena; \
-
 // Creating memory space for the threads memory that is going to be used.
 #define THREADING_SCRATCH() \
 scratch_t t_scratch;       \
@@ -352,7 +344,6 @@ make_list(arena_t *_arena, void* _data);
 #define LIST_FOREACH(type, variable, list) \
 for(list_node_t *it = list.head; it != 0 && (variable = LIST_NODE_DATA(it, type)); it = it->next_sibling)
 /*
- * Usage:
 LIST_FOREACH(struct_t, struct_varialbe, struct_list)
 {
    do stuff with "struct_variable".
@@ -537,39 +528,6 @@ merge_sort(list_node_t **_head_ref, list_compare_fn compare)
 	*_head_ref = merge_sorted_lists(a, b, compare);	
 }
 
-//NOTE: PARTEND LIST
-
-
-///////////////////////////////
-/////// HASH MAP //////////////
-/*
- For this implementation of the Hash Table, we are going to use Linear Implementation of buckets, with probing linearly when having a collision,
- and having a state flag for the buckets.
-
- They buckets will be a linear array with a fixed size, that means this is a Fix Sized Hash-Map as I use memory arenas as our main memory allocator.
-
-To probe( iterate with an algorithmg and compare keys to the target one ).
-
-Probing - Linear for now
-- Add:
-    - empty - then add there and mark as used.
-    - stale - old used bucket, keep probing to make sure the key is not already present, remember this bucket, so we keep probing until found either an emptyslot or we reach the end of the bucket array.
-    - used - just keep probing.
-    
-- Find:
-    - Same logic as above.
-
-- Remove:
-    - Same logic as above, but in this case we mark the backet as stale and set the ptr to 0, so we dont point to old data in memory.
-
-Probing- 
- Stop Condition - when probbed capacity buckets.
-*/
-
-
-// NOTE: PART HASH MAP ////
-
-
 
 //////////////////////////////
 /////// BUFFER //////////////
@@ -730,7 +688,7 @@ cstr_size(const char* _str)
 
 
 /// FORWARD DECLARATIONS ///
-//global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
+global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
 
 
 typedef struct string_t
