@@ -570,6 +570,208 @@ Probing-
 // NOTE: PART HASH MAP ////
 
 
+bool
+bytes_compare(void *r, void *l, u32 size)
+{
+	u8* r_bytes = (u8*)(r);
+	u8* l_bytes = (u8*)(l);
+	
+	for(u32 idx = 0; idx < size; ++idx)
+	{
+		u8 value_r = r_bytes[idx];
+		u8 value_l = l_bytes[idx];
+		
+		if(value_r != value_l)
+		{
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+void
+bytes_set(void *mem, u32 val, u32 size)
+{
+	u8 *bytes = (u8*)mem;
+	for(u32 idx = 0; idx < size; ++idx, bytes+=idx)
+	{
+		*bytes = val;
+	}
+}
+
+typedef enum
+{
+	node_state_empty,
+	node_state_occupied,
+	node_state_stale
+		
+} my_enum_hash_node_state;
+
+
+typedef struct
+{	
+	my_enum_hash_node_state state;
+	void *key;
+	void *data;
+	
+	u32 key_size;
+	
+} hash_bucket_t;
+
+typedef u32 (*hash_function_signature)(void*);
+
+typedef struct
+{
+	arena_t *arena;
+	hash_bucket_t *buckets;
+	hash_function_signature *hash_function;
+	
+	u32 size;
+	u32 data_size;
+		
+} hash_map_t;
+
+
+internal_f u32
+hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data);
+
+
+hash_map_t
+hash_map_create(arena_t *_arena, u32 _size, hash_function_signature *_hash_function, u32 _data_size)
+{
+	hash_map_t result;
+	
+	result.arena = _arena;
+	result.size = _size;
+	result.data_size = _data_size;
+	result.buckets = push_array(_arena, _size, hash_bucket_t);
+	bytes_set(result.buckets, 0, result.data_size * sizeof(hash_bucket_t));	
+	
+	result.hash_function = _hash_function;
+	
+	return result;
+}
+
+internal_f bool
+hash_map_compare_keys(hash_map_t *_map, void *_key, u32 _key_size, u32 _bucket_idx)
+{
+	hash_bucket_t bucket = _map->buckets[_bucket_idx];
+	if(bucket.key_size != _key_size)
+	{
+		return false;
+	}
+	
+	return bytes_compare(bucket.key, _key, _key_size);	
+}
+
+void* 
+hash_map_find(hash_map_t *_map, void *key)
+{
+	return 0;
+}
+
+void 
+hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
+{
+	u32 hashed_id = (*(_map->hash_function))(_key);
+	assert(_map->size != 0);	
+	
+	u32 bucket_idx = hashed_id % _map->size;
+	assert(bucket_idx < _map->size);
+	
+	u32 data_size = _map->data_size;
+	hash_bucket_t bucket = _map->buckets[bucket_idx];
+	switch(bucket.state)
+	{
+		case node_state_stale:
+		{
+			// INIT THE DATA WITH THE SAME KEY-DATA
+		}
+		break;
+		
+		case node_state_occupied:
+		{
+			// if had the same key then return, else probe
+			
+			if(!bytes_compare(_key, bucket.key, bucket.key_size))
+			{
+				// probe
+				u32 found_bucket_idx = hash_map_probe(_map, bucket_idx, _key, _key_size, _new_data);
+				
+				// this means that we have found a bucket which is fittable for our key-data.
+				if(found_bucket_idx != bucket_idx)
+				{
+					hash_bucket_t target_backet = _map->buckets[found_bucket_idx];					
+					
+					// INIT THE BACKET WITH KEY-DATA
+				}
+			}
+
+		}
+		break;
+		
+		case node_state_empty:
+		{
+			// INIT THE BUCKET WITH KEY-DATA 
+		}
+		break;
+		
+		default: break;
+	}
+	
+	
+}
+
+
+
+// Iterate from  bucket to bucket until we find a free one or until we find a stale one.
+internal_f u32 
+hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data)
+{	
+	u32 map_size = _hash_map->size;
+	u32 possible_bucket_idx = _from_idx;
+	for(u32 idx = _from_idx + 1; idx < map_size; ++idx)
+	{						
+		hash_bucket_t bucket = _hash_map->buckets[idx];
+		switch(bucket.state)
+		{
+			case node_state_stale:
+			{
+				possible_bucket_idx= idx;
+				// keep iterating to make sure we dont repeat keys;
+			}
+			break;			
+						
+			case node_state_occupied:
+			{
+				if(hash_map_compare_keys(_hash_map, _key, _key_size, idx))
+				{
+					// key already present, return this idx for comparison, to avoid returning a bool and the u32
+					return _from_idx;
+				} 
+			}
+			break;
+			
+			case node_state_empty:
+			{
+				// basically to avoid creating a bool and check if possible_bucket_idx is set
+				// since we already start at possible_bucket_idx + 1 for probbing.
+				if(possible_bucket_idx != _from_idx)
+				{
+					return possible_bucket_idx;
+				}
+			}
+			break;
+			
+			default: break;
+		}
+	}
+	
+	
+	return possible_bucket_idx;
+}
+
 
 //////////////////////////////
 /////// BUFFER //////////////
