@@ -1094,7 +1094,7 @@ void
 bytes_set(void *mem, u32 val, u32 size)
 {
 	u8 *bytes = (u8*)mem;
-	for(u32 idx = 0; idx < size; ++idx, bytes+=idx)
+	for(u32 idx = 0; idx < size; ++idx, bytes++)
 	{
 		*bytes = val;
 	}
@@ -1109,19 +1109,19 @@ typedef enum
 } my_enum_hash_node_state;
 
 
-global u32 g_max_key_size = 64;
+global u32 g_hash_map_max_key_size = 64;
 
 typedef struct
 {	
-	my_enum_hash_node_state state;
 	void *key;
 	void *data;
 	
 	u32 key_size;
+	my_enum_hash_node_state state;
 	
 } hash_bucket_t;
 
-typedef u32 (*hash_function_signature)(void*);
+typedef u32 (*hash_function_signature)(void*, u32);
 
 
 typedef struct
@@ -1153,7 +1153,7 @@ hash_map_create(arena_t *_arena, u32 _size, u32 _key_size, u32 _data_size, hash_
 	result.data_size = _data_size;	
 	result.key_size = _key_size != 0 
 		? _key_size 
-		: g_max_key_size;
+		: g_hash_map_max_key_size;
 	
 	
 	// key chunk memory
@@ -1199,23 +1199,23 @@ void*
 hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 {
 	void* result = 0;
-	u32 hashed_id = (*(_map->hash_function))(_key);
+	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
 	assert(_map->size != 0);	
 	
 	u32 bucket_idx = hashed_id % _map->size;
 	assert(bucket_idx < _map->size);
 	
 	u32 data_size = _map->data_size;
-	hash_bucket_t bucket = _map->buckets[bucket_idx];
+	hash_bucket_t *bucket = &_map->buckets[bucket_idx];
 	
-	switch(bucket.state)
+	switch(bucket->state)
 	{		
 		case node_state_occupied:
 		{
 			if(hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
 			{
 				*_out_idx = bucket_idx;
-				return bucket.data;
+				return bucket->data;
 			}
 			
 			// if not the same keys, then we just iterate until find the one we are looking for if existed
@@ -1229,8 +1229,8 @@ hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 			// have been probed when added.
 			for(u32 idx = bucket_idx + 1; idx < _map->size; ++idx)
 			{
-				hash_bucket_t bucket_it = _map->buckets[idx];
-				switch(bucket_it.state)
+				hash_bucket_t *bucket_it = &_map->buckets[idx];
+				switch(bucket_it->state)
 				{
 					case node_state_empty:
 					{
@@ -1238,10 +1238,10 @@ hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 					}
 					case node_state_occupied:
 					{
-						if(bytes_compare(_key, bucket_it.key, _key_size))
+						if(bytes_compare(_key, bucket_it->key, _key_size))
 						{
 							*_out_idx = idx;
-							return bucket_it.data;
+							return bucket_it->data;
 						}
 					}
 					break;
@@ -1267,34 +1267,33 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 	}
 
 	
-	u32 hashed_id = (*(_map->hash_function))(_key);
+	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
 	assert(_map->size != 0);	
 	
 	u32 bucket_idx = hashed_id % _map->size;
 	assert(bucket_idx < _map->size);
 	
 	u32 data_size = _map->data_size;
-	hash_bucket_t bucket = _map->buckets[bucket_idx];
-	switch(bucket.state)
+	hash_bucket_t *bucket = &_map->buckets[bucket_idx];
+	switch(bucket->state)
 	{
 		case node_state_stale:
 		{
 			// TODO: HASH MAP function for initializing a bucket.
-			hash_bucket_t *target_bucket = &_map->buckets[bucket_idx];
 			
-			target_bucket->state = node_state_occupied;
-			target_bucket->key_size = _key_size;
-			bytes_copy(target_bucket->key, _key, _key_size);
-			bytes_copy(target_bucket->data, _new_data, data_size);
+			bucket->state = node_state_occupied;
+			bucket->key_size = _key_size;
+			bytes_copy(bucket->key, _key, _key_size);
+			bytes_copy(bucket->data, _new_data, data_size);
 			
-			return target_bucket;
+			return bucket;
 		}
 		break;
 		
 		case node_state_occupied:
 		{
 			// if had the same key then return, else probe			
-			if(!bytes_compare(_key, bucket.key, bucket.key_size))
+			if(!bytes_compare(_key, bucket->key, bucket->key_size))
 			{
 				// probe, take origin the bucket_idx, so if returned, no bucket found or key already present
 				u32 found_bucket_idx = hash_map_probe(_map, bucket_idx, _key, _key_size, _new_data);	
@@ -1401,8 +1400,23 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 	return possible_bucket_idx;
 }
 
-#ifdef __cplusplus
 
+// Default Hash Map usage macro
+#define HASH_MAP(arena, map_size, key_type, data_type, function) \
+hash_map_create(arena, map_size, sizeof(key_type), sizeof(data_type), &function)
+
+// Hash Map with the key as string <char* (fixed size), type>
+#define HASH_MAP_STRING(arena, map_size, data_type, function) \
+hash_map_create(arena, map_size, 30, sizeof(data_type), &function)
+
+// Hash Map with a string as the key, but in this case with custom string size. <char*(custom type), type>
+#define HASH_MAP_STRING_SPECIFIC(arena, map_size, key_size, data_type, function) \
+hash_map_create(arena, map_size, key_size, sizeof(data_type), &function)
+
+
+
+// MAYORANA C++ API
+#ifdef __cplusplus
 
 #include <thread>
 #include <mutex>

@@ -15,7 +15,11 @@ MAIN:
 
 
 - Hash Map:
-	- Create a memory chunk for the data with the same size.
+	- wrap around in the find and addition.
+	- add a debug create function, to know the index that the bucket was put at.
+	- detection of full map.
+
+
 
 
 Multithreading:
