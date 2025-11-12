@@ -313,465 +313,6 @@ arena_t* threads_arena = t_scratch.arena; \
 
 
 
-/////////////////////////////////////////////
-/////////// DATA STRUCTURES ////////////////
-
-// NOTE: PART DATA STRUCTURES
-
-///// LINKED LIST IMPLEMENTATION /////
-// NOTE: PART LIST
-
-// TODO Make iterator for the list for C++
-typedef struct list_node_t
-{
-	void *data;
-	u32 index;
-	struct list_node_t *next_sibling;
-	
-} list_node_t;
-
-typedef struct
-{		
-	list_node_t *head;
-	u32 size;
-} list_t;
-
-
-internal_f list_node_t*
-list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size);
-
-internal_f list_t 
-make_list(arena_t *_arena, void* _data);
-
-
-#define LIST_ADD(arena, list, data, type) list_add_element(arena, &list, &data, sizeof(type))
-#define LIST(arena) make_list(arena, 0)
-#define LIST_NODE_DATA(list_node, type) (type*)list_node->data
-
-// TODO: create the C++ iterator overload.
-#define LIST_FOREACH(type, variable, list) \
-for(list_node_t *it = list.head; it != 0 && (variable = LIST_NODE_DATA(it, type)); it = it->next_sibling)
-/*
- * Usage:
-LIST_FOREACH(struct_t, struct_varialbe, struct_list)
-{
-   do stuff with "struct_variable".
-}
-*/
-
-#define PRINT_LIST(type, list, format, ...) \
-type* value = 0;\
-LIST_FOREACH(type, value, list) \
-{ \
-if(it->next_sibling == 0)\
-{\
-printf(format "\n", ##__VA_ARGS__);\
-}\
-else\
-{\
-printf(format", ", ##__VA_ARGS__);   \
-}\
-}\
-
-internal_f list_t 
-make_list(arena_t *_arena, void* _data)
-{
-	list_t result;	
-	result.size = 0;	
-	result.head = 0;
-	
-	if(_data)
-	{
-		list_node_t *node = push_struct(_arena, list_node_t);
-		
-		if(node)
-		{
-			result.head = node;
-			result.size++;
-		}
-	}
-	
-	return result;
-}
-
-
-internal_f list_node_t*
-list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
-{
-	if(_data == 0)
-	{
-		return 0;
-	}
-	
-	if(_list)
-	{
-		list_node_t *node = push_struct(_arena, list_node_t);
-		void *node_data = push_size(_arena, _size);
-		node->data = node_data;
-		node->next_sibling = 0;
-		node->index = _list->size;
-		
-		if(node_data == 0)
-		{
-			return 0;
-		}
-		
-		// note: (juanes.rayo): Moving this to a .c file to use as raw copy of bytes.
-		u8 *data_as_bytes = (u8*)_data;
-		u8 *node_data_as_bytes = (u8*)node_data;
-		for(u32 i = 0; i < _size; ++i)
-		{
-			node_data_as_bytes[i] = data_as_bytes[i];
-		}
-		
-		if(node)
-		{
-			if(!_list->head)
-			{
-				_list->head = node;
-			}
-			else
-			{
-				list_node_t *prev_head = _list->head;
-				node->next_sibling = prev_head;
-				_list->head = node;
-			}
-			
-			_list->size++;
-		}
-		
-		return node;
-	}
-	
-	return 0;
-	
-}
-
-/*global list_node_t* list_get_tail(list_t *_list)
-{
-
-}*/
-
-////////////////////
-/// LIST SORTING ///
-
-// NOTE: PART LIST SORTING
-
-////////////////////
-//// MERGE SORT ////
-/* Compare function definition. Possible outcomes:
-*  |-1 a < b|
-*  |0 a == b|
-*  |1 a > b |
-*/
-typedef s8 (*list_compare_fn)(const void*, const void*);
-
-global void
-merge_sort(list_node_t **_head_ref, list_compare_fn compare);
-
-internal_f void
-split_list(list_node_t *_source, list_node_t **_front_ref, list_node_t **_back_ref)
-{
-	list_node_t *slow = _source;
-	list_node_t *fast = _source->next_sibling;
-	
-	// Splitting the list in 2, fast advances by 2 nodes and slow by 1, so when fast finishes the list, then slow is at the middle.
-	while(fast)
-	{
-		fast = fast->next_sibling;
-		if(fast)
-		{
-			slow = slow->next_sibling;
-			fast = fast->next_sibling;
-		}
-	}
-	
-	*_front_ref = _source;
-	*_back_ref = slow->next_sibling;
-	slow->next_sibling = 0;	
-}
-
-internal_f list_node_t*
-merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
-{
-	// Keep comparing the both lists separately and adding nodes as they are less than the other.
-	/*
-     *  a = 2, 5, 7; b = 3, 6, 8;
-     *  2-3 -> add 2 => 5 - 3 -> add 3 == > 5 - 6 -> add 5 ==> 7 - 6 -> add 6 ==> 7 - 8 -> add 7 ==> 8 since a is empty. return list.
-    */
-	if(!a) return b;
-	if(!b) return a;
-	
-	list_node_t *result = 0;
-	
-	if(compare(a->data, b->data) <= 0)
-	{
-		result = a;
-		result->next_sibling = merge_sorted_lists(a->next_sibling, b, compare);
-	}
-	else
-	{
-		result = b;
-		result->next_sibling = merge_sorted_lists(a, b->next_sibling, compare);
-	}
-	
-	return result;
-}
-
-
-global_f void
-merge_sort(list_node_t **_head_ref, list_compare_fn compare)
-{
-	list_node_t *head = *_head_ref;
-	if(!head || head->next_sibling == 0)
-	{
-		return;
-	}
-	
-	list_node_t *a, *b;
-	split_list(head, &a, &b);
-	
-	merge_sort(&a, compare);
-	merge_sort(&b, compare);
-	
-	*_head_ref = merge_sorted_lists(a, b, compare);	
-}
-
-//NOTE: PARTEND LIST
-
-
-///////////////////////////////
-/////// HASH MAP //////////////
-/*
- For this implementation of the Hash Table, we are going to use Linear Implementation of buckets, with probing linearly when having a collision,
- and having a state flag for the buckets.
-
- They buckets will be a linear array with a fixed size, that means this is a Fix Sized Hash-Map as I use memory arenas as our main memory allocator.
-
-To probe( iterate with an algorithmg and compare keys to the target one ).
-
-Probing - Linear for now
-- Add:
-    - empty - then add there and mark as used.
-    - stale - old used bucket, keep probing to make sure the key is not already present, remember this bucket, so we keep probing until found either an emptyslot or we reach the end of the bucket array.
-    - used - just keep probing.
-    
-- Find:
-    - Same logic as above.
-
-- Remove:
-    - Same logic as above, but in this case we mark the backet as stale and set the ptr to 0, so we dont point to old data in memory.
-
-Probing- 
- Stop Condition - when probbed capacity buckets.
-*/
-
-
-// NOTE: PART HASH MAP ////
-
-
-bool
-bytes_compare(void *r, void *l, u32 size)
-{
-	u8* r_bytes = (u8*)(r);
-	u8* l_bytes = (u8*)(l);
-	
-	for(u32 idx = 0; idx < size; ++idx)
-	{
-		u8 value_r = r_bytes[idx];
-		u8 value_l = l_bytes[idx];
-		
-		if(value_r != value_l)
-		{
-			return false;
-		}
-	}
-	
-	return true;
-}
-
-void
-bytes_set(void *mem, u32 val, u32 size)
-{
-	u8 *bytes = (u8*)mem;
-	for(u32 idx = 0; idx < size; ++idx, bytes+=idx)
-	{
-		*bytes = val;
-	}
-}
-
-typedef enum
-{
-	node_state_empty,
-	node_state_occupied,
-	node_state_stale
-		
-} my_enum_hash_node_state;
-
-
-typedef struct
-{	
-	my_enum_hash_node_state state;
-	void *key;
-	void *data;
-	
-	u32 key_size;
-	
-} hash_bucket_t;
-
-typedef u32 (*hash_function_signature)(void*);
-
-typedef struct
-{
-	arena_t *arena;
-	hash_bucket_t *buckets;
-	hash_function_signature *hash_function;
-	
-	u32 size;
-	u32 data_size;
-		
-} hash_map_t;
-
-
-internal_f u32
-hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data);
-
-
-hash_map_t
-hash_map_create(arena_t *_arena, u32 _size, hash_function_signature *_hash_function, u32 _data_size)
-{
-	hash_map_t result;
-	
-	result.arena = _arena;
-	result.size = _size;
-	result.data_size = _data_size;
-	result.buckets = push_array(_arena, _size, hash_bucket_t);
-	bytes_set(result.buckets, 0, result.data_size * sizeof(hash_bucket_t));	
-	
-	result.hash_function = _hash_function;
-	
-	return result;
-}
-
-internal_f bool
-hash_map_compare_keys(hash_map_t *_map, void *_key, u32 _key_size, u32 _bucket_idx)
-{
-	hash_bucket_t bucket = _map->buckets[_bucket_idx];
-	if(bucket.key_size != _key_size)
-	{
-		return false;
-	}
-	
-	return bytes_compare(bucket.key, _key, _key_size);	
-}
-
-void* 
-hash_map_find(hash_map_t *_map, void *key)
-{
-	return 0;
-}
-
-void 
-hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
-{
-	u32 hashed_id = (*(_map->hash_function))(_key);
-	assert(_map->size != 0);	
-	
-	u32 bucket_idx = hashed_id % _map->size;
-	assert(bucket_idx < _map->size);
-	
-	u32 data_size = _map->data_size;
-	hash_bucket_t bucket = _map->buckets[bucket_idx];
-	switch(bucket.state)
-	{
-		case node_state_stale:
-		{
-			// INIT THE DATA WITH THE SAME KEY-DATA
-		}
-		break;
-		
-		case node_state_occupied:
-		{
-			// if had the same key then return, else probe
-			
-			if(!bytes_compare(_key, bucket.key, bucket.key_size))
-			{
-				// probe
-				u32 found_bucket_idx = hash_map_probe(_map, bucket_idx, _key, _key_size, _new_data);
-				
-				// this means that we have found a bucket which is fittable for our key-data.
-				if(found_bucket_idx != bucket_idx)
-				{
-					hash_bucket_t target_backet = _map->buckets[found_bucket_idx];					
-					
-					// INIT THE BACKET WITH KEY-DATA
-				}
-			}
-
-		}
-		break;
-		
-		case node_state_empty:
-		{
-			// INIT THE BUCKET WITH KEY-DATA 
-		}
-		break;
-		
-		default: break;
-	}
-	
-	
-}
-
-
-
-// Iterate from  bucket to bucket until we find a free one or until we find a stale one.
-internal_f u32 
-hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data)
-{	
-	u32 map_size = _hash_map->size;
-	u32 possible_bucket_idx = _from_idx;
-	for(u32 idx = _from_idx + 1; idx < map_size; ++idx)
-	{						
-		hash_bucket_t bucket = _hash_map->buckets[idx];
-		switch(bucket.state)
-		{
-			case node_state_stale:
-			{
-				possible_bucket_idx= idx;
-				// keep iterating to make sure we dont repeat keys;
-			}
-			break;			
-						
-			case node_state_occupied:
-			{
-				if(hash_map_compare_keys(_hash_map, _key, _key_size, idx))
-				{
-					// key already present, return this idx for comparison, to avoid returning a bool and the u32
-					return _from_idx;
-				} 
-			}
-			break;
-			
-			case node_state_empty:
-			{
-				// basically to avoid creating a bool and check if possible_bucket_idx is set
-				// since we already start at possible_bucket_idx + 1 for probbing.
-				if(possible_bucket_idx != _from_idx)
-				{
-					return possible_bucket_idx;
-				}
-			}
-			break;
-			
-			default: break;
-		}
-	}
-	
-	
-	return possible_bucket_idx;
-}
-
 
 //////////////////////////////
 /////// BUFFER //////////////
@@ -779,7 +320,19 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 //NOTE: PART BUFFER
 
 global u32
-cstr_len(const char* _str);
+cstr_len(const char* _str)
+{
+	u8 *character = (u8*)_str;
+	u32 size = 0;
+	
+	while((*character) != '\0')
+	{
+		character += 1;		
+		size++;
+	}
+	
+	return size;
+}
 
 ///// BUFFER FORWARD DECLARATIONS
 
@@ -1242,6 +795,611 @@ global void print_string(string_t *string)
 	printf("%s \n", buffer_as_data);
 }
 
+
+
+
+/////////////////////////////////////////////
+/////////// DATA STRUCTURES ////////////////
+
+// NOTE: PART DATA STRUCTURES
+
+///// LINKED LIST IMPLEMENTATION /////
+// NOTE: PART LIST
+
+// TODO Make iterator for the list for C++
+typedef struct list_node_t
+{
+	void *data;
+	u32 index;
+	struct list_node_t *next_sibling;
+	
+} list_node_t;
+
+typedef struct
+{		
+	list_node_t *head;
+	u32 size;
+} list_t;
+
+
+internal_f list_node_t*
+list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size);
+
+internal_f list_t 
+make_list(arena_t *_arena, void* _data);
+
+
+#define LIST_ADD(arena, list, data, type) list_add_element(arena, &list, &data, sizeof(type))
+#define LIST(arena) make_list(arena, 0)
+#define LIST_NODE_DATA(list_node, type) (type*)list_node->data
+
+// TODO: create the C++ iterator overload.
+#define LIST_FOREACH(type, variable, list) \
+for(list_node_t *it = list.head; it != 0 && (variable = LIST_NODE_DATA(it, type)); it = it->next_sibling)
+/*
+ * Usage:
+LIST_FOREACH(struct_t, struct_varialbe, struct_list)
+{
+   do stuff with "struct_variable".
+}
+*/
+
+#define PRINT_LIST(type, list, format, ...) \
+type* value = 0;\
+LIST_FOREACH(type, value, list) \
+{ \
+if(it->next_sibling == 0)\
+{\
+printf(format "\n", ##__VA_ARGS__);\
+}\
+else\
+{\
+printf(format", ", ##__VA_ARGS__);   \
+}\
+}\
+
+internal_f list_t 
+make_list(arena_t *_arena, void* _data)
+{
+	list_t result;	
+	result.size = 0;	
+	result.head = 0;
+	
+	if(_data)
+	{
+		list_node_t *node = push_struct(_arena, list_node_t);
+		
+		if(node)
+		{
+			result.head = node;
+			result.size++;
+		}
+	}
+	
+	return result;
+}
+
+
+internal_f list_node_t*
+list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
+{
+	if(_data == 0)
+	{
+		return 0;
+	}
+	
+	if(_list)
+	{
+		list_node_t *node = push_struct(_arena, list_node_t);
+		void *node_data = push_size(_arena, _size);
+		node->data = node_data;
+		node->next_sibling = 0;
+		node->index = _list->size;
+		
+		if(node_data == 0)
+		{
+			return 0;
+		}
+		
+		// note: (juanes.rayo): Moving this to a .c file to use as raw copy of bytes.
+		u8 *data_as_bytes = (u8*)_data;
+		u8 *node_data_as_bytes = (u8*)node_data;
+		for(u32 i = 0; i < _size; ++i)
+		{
+			node_data_as_bytes[i] = data_as_bytes[i];
+		}
+		
+		if(node)
+		{
+			if(!_list->head)
+			{
+				_list->head = node;
+			}
+			else
+			{
+				list_node_t *prev_head = _list->head;
+				node->next_sibling = prev_head;
+				_list->head = node;
+			}
+			
+			_list->size++;
+		}
+		
+		return node;
+	}
+	
+	return 0;
+	
+}
+
+/*global list_node_t* list_get_tail(list_t *_list)
+{
+
+}*/
+
+////////////////////
+/// LIST SORTING ///
+
+// NOTE: PART LIST SORTING
+
+////////////////////
+//// MERGE SORT ////
+/* Compare function definition. Possible outcomes:
+*  |-1 a < b|
+*  |0 a == b|
+*  |1 a > b |
+*/
+typedef s8 (*list_compare_fn)(const void*, const void*);
+
+global void
+merge_sort(list_node_t **_head_ref, list_compare_fn compare);
+
+internal_f void
+split_list(list_node_t *_source, list_node_t **_front_ref, list_node_t **_back_ref)
+{
+	list_node_t *slow = _source;
+	list_node_t *fast = _source->next_sibling;
+	
+	// Splitting the list in 2, fast advances by 2 nodes and slow by 1, so when fast finishes the list, then slow is at the middle.
+	while(fast)
+	{
+		fast = fast->next_sibling;
+		if(fast)
+		{
+			slow = slow->next_sibling;
+			fast = fast->next_sibling;
+		}
+	}
+	
+	*_front_ref = _source;
+	*_back_ref = slow->next_sibling;
+	slow->next_sibling = 0;	
+}
+
+internal_f list_node_t*
+merge_sorted_lists(list_node_t *a, list_node_t *b, list_compare_fn compare)
+{
+	// Keep comparing the both lists separately and adding nodes as they are less than the other.
+	/*
+     *  a = 2, 5, 7; b = 3, 6, 8;
+     *  2-3 -> add 2 => 5 - 3 -> add 3 == > 5 - 6 -> add 5 ==> 7 - 6 -> add 6 ==> 7 - 8 -> add 7 ==> 8 since a is empty. return list.
+    */
+	if(!a) return b;
+	if(!b) return a;
+	
+	list_node_t *result = 0;
+	
+	if(compare(a->data, b->data) <= 0)
+	{
+		result = a;
+		result->next_sibling = merge_sorted_lists(a->next_sibling, b, compare);
+	}
+	else
+	{
+		result = b;
+		result->next_sibling = merge_sorted_lists(a, b->next_sibling, compare);
+	}
+	
+	return result;
+}
+
+
+global_f void
+merge_sort(list_node_t **_head_ref, list_compare_fn compare)
+{
+	list_node_t *head = *_head_ref;
+	if(!head || head->next_sibling == 0)
+	{
+		return;
+	}
+	
+	list_node_t *a, *b;
+	split_list(head, &a, &b);
+	
+	merge_sort(&a, compare);
+	merge_sort(&b, compare);
+	
+	*_head_ref = merge_sorted_lists(a, b, compare);	
+}
+
+//NOTE: PARTEND LIST
+
+
+///////////////////////////////
+/////// HASH MAP //////////////
+/*
+ For this implementation of the Hash Table, we are going to use Linear Implementation of buckets, with probing linearly when having a collision,
+ and having a state flag for the buckets.
+
+ They buckets will be a linear array with a fixed size, that means this is a Fix Sized Hash-Map as I use memory arenas as our main memory allocator.
+
+To probe( iterate with an algorithmg and compare keys to the target one ).
+
+Probing - Linear for now
+- Add:
+    - empty - then add there and mark as used.
+    - stale - old used bucket, keep probing to make sure the key is not already present, remember this bucket, so we keep probing until found either an emptyslot or we reach the end of the bucket array.
+    - used - just keep probing.
+    
+- Find:
+    - Same logic as above.
+
+- Remove:
+    - Same logic as above, but in this case we mark the backet as stale and set the ptr to 0, so we dont point to old data in memory.
+
+Probing- 
+ Stop Condition - when probbed capacity buckets.
+
+
+-> BUCKETS:
+   - for now we will have a max size for the key buckets. 
+
+*/
+
+
+// NOTE: PART HASH MAP ////
+
+void 
+bytes_copy(void *d, void* s, u32 size)
+{
+	u8 *source = (u8*)s;
+	u8 *destination = (u8*)d;
+	for(u32 idx = 0; idx < size; ++idx, source++, destination++)
+	{
+		*destination = *source;
+	}
+}
+
+bool
+bytes_compare(void *r, void *l, u32 size)
+{
+	u8* r_bytes = (u8*)(r);
+	u8* l_bytes = (u8*)(l);
+	
+	for(u32 idx = 0; idx < size; ++idx)
+	{
+		u8 value_r = r_bytes[idx];
+		u8 value_l = l_bytes[idx];
+		
+		if(value_r != value_l)
+		{
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+void
+bytes_set(void *mem, u32 val, u32 size)
+{
+	u8 *bytes = (u8*)mem;
+	for(u32 idx = 0; idx < size; ++idx, bytes+=idx)
+	{
+		*bytes = val;
+	}
+}
+
+typedef enum
+{
+	node_state_empty,
+	node_state_occupied,
+	node_state_stale
+		
+} my_enum_hash_node_state;
+
+
+global u32 g_max_key_size = 64;
+
+typedef struct
+{	
+	my_enum_hash_node_state state;
+	void *key;
+	void *data;
+	
+	u32 key_size;
+	
+} hash_bucket_t;
+
+typedef u32 (*hash_function_signature)(void*);
+
+
+typedef struct
+{
+	arena_t *arena;
+	hash_bucket_t *buckets;
+	void* keys_chunk;
+	void* data_chunk;
+	hash_function_signature hash_function;
+	
+	u32 size;
+	u32 data_size;
+	u32 key_size;
+		
+} hash_map_t;
+
+
+internal_f u32
+hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data);
+
+
+hash_map_t
+hash_map_create(arena_t *_arena, u32 _size, u32 _key_size, u32 _data_size, hash_function_signature _hash_function)
+{
+	hash_map_t result;
+	
+	result.arena = _arena;
+	result.size = _size;
+	result.data_size = _data_size;	
+	result.key_size = _key_size != 0 
+		? _key_size 
+		: g_max_key_size;
+	
+	
+	// key chunk memory
+	result.keys_chunk = push_size(_arena, result.key_size *  _size);
+	bytes_set(result.keys_chunk, 0, result.key_size * _size);
+	
+	// data chunk memory
+	result.data_chunk = push_size(_arena, result.data_size * _size);
+	bytes_set(result.data_chunk, 0, result.data_size * _size);
+	
+	// memory for all the buckets
+	result.buckets = push_array(_arena, _size, hash_bucket_t);
+	bytes_set(result.buckets, 0, sizeof(hash_bucket_t) * _size);
+	
+	// Initializing the keys of the buckets
+	u8* key_chunk_it = (u8*)result.keys_chunk;
+	u8* key_data_it = (u8*)result.data_chunk;
+	
+	for(u32 idx = 0; idx < result.size; ++idx, key_chunk_it += result.key_size, key_data_it += result.data_size)
+	{
+		result.buckets[idx].key = key_chunk_it;
+		result.buckets[idx].data = key_data_it;
+	}
+	
+	result.hash_function = _hash_function;
+	
+	return result;
+}
+
+internal_f bool
+hash_map_compare_keys(hash_map_t *_map, void *_key, u32 _key_size, u32 _bucket_idx)
+{
+	hash_bucket_t bucket = _map->buckets[_bucket_idx];
+	if(bucket.key_size != _key_size)
+	{
+		return false;
+	}
+	
+	return bytes_compare(bucket.key, _key, _key_size);	
+}
+
+void* 
+hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
+{
+	void* result = 0;
+	u32 hashed_id = (*(_map->hash_function))(_key);
+	assert(_map->size != 0);	
+	
+	u32 bucket_idx = hashed_id % _map->size;
+	assert(bucket_idx < _map->size);
+	
+	u32 data_size = _map->data_size;
+	hash_bucket_t bucket = _map->buckets[bucket_idx];
+	
+	switch(bucket.state)
+	{		
+		case node_state_occupied:
+		{
+			if(hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
+			{
+				*_out_idx = bucket_idx;
+				return bucket.data;
+			}
+			
+			// if not the same keys, then we just iterate until find the one we are looking for if existed
+			// an empty slot or just return
+		}
+		
+		case node_state_stale:
+		{
+			// TODO: HASH MAP scope this iteration search method
+			// iterate until we find an empty bucket or the one we are looking for, since could 
+			// have been probed when added.
+			for(u32 idx = bucket_idx + 1; idx < _map->size; ++idx)
+			{
+				hash_bucket_t bucket_it = _map->buckets[idx];
+				switch(bucket_it.state)
+				{
+					case node_state_empty:
+					{
+						return 0;							
+					}
+					case node_state_occupied:
+					{
+						if(bytes_compare(_key, bucket_it.key, _key_size))
+						{
+							*_out_idx = idx;
+							return bucket_it.data;
+						}
+					}
+					break;
+				}
+				
+			}
+		}
+		break;
+		
+		default:break;
+	}
+	
+	return 0;
+}
+
+hash_bucket_t* 
+hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
+{	
+	u32 found_idx = 0;
+	if(hash_map_find(_map, _key, _key_size, &found_idx) != 0)
+	{
+		return 0;
+	}
+
+	
+	u32 hashed_id = (*(_map->hash_function))(_key);
+	assert(_map->size != 0);	
+	
+	u32 bucket_idx = hashed_id % _map->size;
+	assert(bucket_idx < _map->size);
+	
+	u32 data_size = _map->data_size;
+	hash_bucket_t bucket = _map->buckets[bucket_idx];
+	switch(bucket.state)
+	{
+		case node_state_stale:
+		{
+			// TODO: HASH MAP function for initializing a bucket.
+			hash_bucket_t *target_bucket = &_map->buckets[bucket_idx];
+			
+			target_bucket->state = node_state_occupied;
+			target_bucket->key_size = _key_size;
+			bytes_copy(target_bucket->key, _key, _key_size);
+			bytes_copy(target_bucket->data, _new_data, data_size);
+			
+			return target_bucket;
+		}
+		break;
+		
+		case node_state_occupied:
+		{
+			// if had the same key then return, else probe			
+			if(!bytes_compare(_key, bucket.key, bucket.key_size))
+			{
+				// probe, take origin the bucket_idx, so if returned, no bucket found or key already present
+				u32 found_bucket_idx = hash_map_probe(_map, bucket_idx, _key, _key_size, _new_data);	
+				if(found_bucket_idx != bucket_idx)
+				{
+					hash_bucket_t *target_bucket = &_map->buckets[found_bucket_idx];					
+					
+					target_bucket->state = node_state_occupied;
+					target_bucket->key_size = _key_size;
+					bytes_copy(target_bucket->key, _key, _key_size);
+					bytes_copy(target_bucket->data, _new_data, data_size);
+					
+					return target_bucket;
+				}
+			}
+			
+		}
+		break;
+		
+		case node_state_empty:
+		{
+			hash_bucket_t *target_bucket = &_map->buckets[bucket_idx];
+			
+			target_bucket->state = node_state_occupied;
+			target_bucket->key_size = _key_size;
+			bytes_copy(target_bucket->key, _key, _key_size);
+			bytes_copy(target_bucket->data, _new_data, data_size);
+			
+			return target_bucket;
+		}
+		break;
+		
+		default: break;
+	}
+	
+	
+	return 0;
+}
+
+bool
+hash_map_remove(hash_map_t *_map, void *_key, u32 _key_size)
+{
+	
+	u32 key_idx = 0;
+	if(void* found_data = hash_map_find(_map, _key, _key_size, &key_idx))
+	{
+		_map->buckets[key_idx].state = node_state_stale;
+		return true;
+	}
+	
+	return false;
+}
+
+
+// Iterate from  bucket to bucket until we find a free one or until we find a stale one.
+internal_f u32 
+hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data)
+{	
+	u32 map_size = _hash_map->size;
+	u32 possible_bucket_idx = _from_idx;
+	for(u32 idx = _from_idx + 1; idx < map_size; ++idx)
+	{						
+		hash_bucket_t bucket = _hash_map->buckets[idx];
+		switch(bucket.state)
+		{
+			case node_state_stale:
+			{
+				possible_bucket_idx = idx;
+				// keep iterating to make sure we dont repeat keys;
+			}
+			break;			
+						
+			case node_state_occupied:
+			{
+				if(hash_map_compare_keys(_hash_map, _key, _key_size, idx))
+				{
+					// key already present, return this idx for comparison, to avoid returning a bool and the u32
+					return _from_idx;
+				} 
+			}
+			break;
+			
+			
+			//  check if we found a stale one before this empty one, if not, then return this bucket.
+			case node_state_empty:
+			{
+				if(possible_bucket_idx == _from_idx)
+				{
+					// if not stale bucket found before this empty one, then return this bucket.
+					possible_bucket_idx = idx;
+				}
+				
+				
+				return possible_bucket_idx;
+			}
+			break;
+			
+			default: break;
+		}
+		
+	}
+	
+	
+	return possible_bucket_idx;
+}
 
 #ifdef __cplusplus
 

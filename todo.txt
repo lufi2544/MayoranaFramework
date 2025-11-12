@@ -14,5 +14,9 @@ MAIN:
 - Add verbosity for the logs.
 
 
+- Hash Map:
+	- Create a memory chunk for the data with the same size.
+
+
 Multithreading:
 - arena per thread.
