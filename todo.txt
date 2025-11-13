@@ -15,8 +15,8 @@ MAIN:
 
 
 - Hash Map:
-	- wrap around in the find and addition.
-	- add a debug create function, to know the index that the bucket was put at.
+
+	- add remove macros.
 	- detection of full map.
 
  TODO: the hash map upon addition performs 2 iterations: one for check if existed, and another one for find a good spot,

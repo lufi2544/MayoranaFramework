@@ -1143,7 +1143,7 @@ internal_f u32
 hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data);
 
 
-hash_map_t
+global_f hash_map_t
 hash_map_create(arena_t *_arena, u32 _size, u32 _key_size, u32 _data_size, hash_function_signature _hash_function)
 {
 	hash_map_t result;
@@ -1196,152 +1196,95 @@ hash_map_compare_keys(hash_map_t *_map, void *_key, u32 _key_size, u32 _bucket_i
 }
 
 
+internal_f void* 
+hash_map_find_internal(hash_map_t *_map, void *_key, u32 _key_size, u32 *out_bucket_idx)
+{
+	void* result = 0;
+	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
+	assert(_map->size != 0);	
+	
+	u32 bucket_idx = hashed_id % _map->size;
+	assert(bucket_idx < _map->size);
+	
+	u32 data_size = _map->data_size;
+	hash_bucket_t *bucket = &_map->buckets[bucket_idx];
+	
+	switch(bucket->state)
+	{		
+		case node_state_occupied:
+		{
+			if(hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
+			{
+				*out_bucket_idx = bucket_idx;
+				return bucket->data;
+			}
+			
+			// if not the same keys, then we just iterate until find the one we are looking for if existed
+			// an empty slot or just return
+		}
+		
+		case node_state_stale:
+		{
+			// TODO: HASH MAP scope this iteration search method
+			// iterate until we find an empty bucket or the one we are looking for, since could 
+			// have been probed when added.
+			
+			u32 idx = bucket_idx + 1;
+			u32 idx_to_check = idx;
+			while(idx_to_check != bucket_idx)
+			{									
+				hash_bucket_t *bucket_it = &_map->buckets[idx_to_check];
+				switch(bucket_it->state)
+				{
+					case node_state_empty:
+					{
+						return 0;							
+					}
+					case node_state_occupied:
+					{
+						if(bytes_compare(_key, bucket_it->key, _key_size))
+						{
+							*out_bucket_idx = idx_to_check;
+							return bucket_it->data;
+						}
+					}
+					break;
+				}
+				
+				++idx;	
+				
+				// safe wrap around
+				idx_to_check = idx < _map->size 
+					? idx
+					: idx % _map->size;
+				
+			}
+		}
+		break;
+		
+		default:break;
+	}
+	
+	return 0;
+}
 
-void* 
+
+global_f void* 
 hash_map_find(hash_map_t *_map, void *_key, u32 _key_size)
 {
-	void* result = 0;
-	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
-	assert(_map->size != 0);	
-	
-	u32 bucket_idx = hashed_id % _map->size;
-	assert(bucket_idx < _map->size);
-	
-	u32 data_size = _map->data_size;
-	hash_bucket_t *bucket = &_map->buckets[bucket_idx];
-	
-	switch(bucket->state)
-	{		
-		case node_state_occupied:
-		{
-			if(hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
-			{
-				return bucket->data;
-			}
-			
-			// if not the same keys, then we just iterate until find the one we are looking for if existed
-			// an empty slot or just return
-		}
-		
-		case node_state_stale:
-		{
-			// TODO: HASH MAP scope this iteration search method
-			// iterate until we find an empty bucket or the one we are looking for, since could 
-			// have been probed when added.
-			
-			u32 idx = bucket_idx + 1;
-			u32 idx_to_check = idx;
-			while(idx_to_check != bucket_idx)
-			{									
-				hash_bucket_t *bucket_it = &_map->buckets[idx];
-				switch(bucket_it->state)
-				{
-					case node_state_empty:
-					{
-						return 0;							
-					}
-					case node_state_occupied:
-					{
-						if(bytes_compare(_key, bucket_it->key, _key_size))
-						{
-							return bucket_it->data;
-						}
-					}
-					break;
-				}
-				
-				++idx;	
-				
-				// safe wrap around
-				idx_to_check = idx < _map->size 
-					? idx
-					: _map->size % idx;
-				
-			}
-		}
-		break;
-		
-		default:break;
-	}
-	
-	return 0;
+	u32 n = 0;
+	void* found_data = hash_map_find_internal(_map, _key, _key_size, &n);	
+	return found_data;
 }
 
-
-// TODO Create the version with the out idx
-void* 
-hash_map_find_v(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
+global_f void* 
+hash_map_find_v(hash_map_t *_map, void *_key, u32 _key_size, u32 *out_idx)
 {
-	void* result = 0;
-	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
-	assert(_map->size != 0);	
-	
-	u32 bucket_idx = hashed_id % _map->size;
-	assert(bucket_idx < _map->size);
-	
-	u32 data_size = _map->data_size;
-	hash_bucket_t *bucket = &_map->buckets[bucket_idx];
-	
-	switch(bucket->state)
-	{		
-		case node_state_occupied:
-		{
-			if(hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
-			{
-				*_out_idx = bucket_idx;
-				return bucket->data;
-			}
-			
-			// if not the same keys, then we just iterate until find the one we are looking for if existed
-			// an empty slot or just return
-		}
-		
-		case node_state_stale:
-		{
-			// TODO: HASH MAP scope this iteration search method
-			// iterate until we find an empty bucket or the one we are looking for, since could 
-			// have been probed when added.
-			
-			u32 idx = bucket_idx + 1;
-			u32 idx_to_check = idx;
-			while(idx_to_check != bucket_idx)
-			{									
-				hash_bucket_t *bucket_it = &_map->buckets[idx];
-				switch(bucket_it->state)
-				{
-					case node_state_empty:
-					{
-						return 0;							
-					}
-					case node_state_occupied:
-					{
-						if(bytes_compare(_key, bucket_it->key, _key_size))
-						{
-							*_out_idx = idx;
-							return bucket_it->data;
-						}
-					}
-					break;
-				}
-								
-				++idx;	
-				
-				// safe wrap around
-				idx_to_check = idx < _map->size 
-					? idx
-					: _map->size % idx;
-				
-			}
-		}
-		break;
-		
-		default:break;
-	}
-	
-	return 0;
+	void* found_data = hash_map_find_internal(_map, _key, _key_size, out_idx);			
+	return found_data;
 }
 
-hash_bucket_t* 
+global_f hash_bucket_t* 
 hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 {	
 	if(hash_map_find(_map, _key, _key_size) != 0)
@@ -1414,7 +1357,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 	return 0;
 }
 
-bool
+global_f bool
 hash_map_remove(hash_map_t *_map, void *_key, u32 _key_size)
 {
 	
@@ -1462,8 +1405,9 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 	return _from_idx;
 }
 
+// NOTE: MACROS
 
-// Default Hash Map usage macro
+// CREATE
 #define HASH_MAP(arena, map_size, key_type, data_type, function) \
 hash_map_create(arena, map_size, sizeof(key_type), sizeof(data_type), &function)
 
@@ -1476,12 +1420,23 @@ hash_map_create(arena, map_size, 30, sizeof(data_type), &function)
 hash_map_create(arena, map_size, string_key_size, sizeof(data_type), &function)
 
 
+// ADD
+/* (hash_bucket_t*)*/#define HASH_MAP_ADD(map, key, data) \
+hash_map_add(&map, &key, sizeof(key), &data)
+
+
+// FIND
 #define HASH_MAP_FIND(map, key_type, key) \
 hash_map_find(&map, key, sizeof(key_type))
 
 #define HASH_MAP_FIND_STRING(map, buffer) \
 hash_map_find(&map, buffer, cstr_len(buffer) + 1);
 
+// REMOVE
+#define HASH_MAP_REMOVE(map, key) \
+hash_map_remove(&map, key, sizeof(key))
+
+// NOTE: PART HASH MAP END
 
 
 // MAYORANA C++ API
