@@ -146,7 +146,7 @@ TEST_CASE("(Add), Add element, remove it, then add same hashed element again, to
 	u32 data_1 = 20;	
 	HASH_MAP_ADD(map, key_1, data_1);
 	
-	bool b_removed = hash_map_remove(&map, &key, sizeof(u32));
+	bool b_removed = HASH_MAP_REMOVE(map, key);
 	
 	u32 key_2 = 18;
 	u32 data_2 = 22;	

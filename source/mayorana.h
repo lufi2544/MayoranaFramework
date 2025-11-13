@@ -1434,7 +1434,7 @@ hash_map_find(&map, buffer, cstr_len(buffer) + 1);
 
 // REMOVE
 #define HASH_MAP_REMOVE(map, key) \
-hash_map_remove(&map, key, sizeof(key))
+hash_map_remove(&map, &key, sizeof(key))
 
 // NOTE: PART HASH MAP END
 

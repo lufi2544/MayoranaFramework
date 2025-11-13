@@ -15,8 +15,6 @@ MAIN:
 
 
 - Hash Map:
-
-	- add remove macros.
 	- detection of full map.
 
  TODO: the hash map upon addition performs 2 iterations: one for check if existed, and another one for find a good spot,
