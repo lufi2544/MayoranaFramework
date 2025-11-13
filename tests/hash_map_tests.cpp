@@ -79,7 +79,39 @@ TEST_CASE("Hash Map, value add, <char*, u32>")
 }
 
 
-TEST_CASE("")
+
+TEST_CASE("(Find), added element, just find it")
+{
+	SCRATCH();
+	hash_map_t map = HASH_MAP_STRING(temp_arena, 10, u32, hash_function_string);
+	
+	char key[10] = "Hello";
+	u32 data = 10;
+	u32 len = cstr_len(key) + 1;
+	hash_bucket_t *bucket = hash_map_add(&map, (void*)key, len, &data);
+	
+	void* found_data = HASH_MAP_FIND_STRING(map, key);
+	
+	CHECK_EQ((found_data != 0), true);
+				
+}
+
+TEST_CASE("(Find), element already present, wrapp around to check")
+{
+	
+}
+
+TEST_CASE("(Find), element already presnet, NOT wrap around to check")
+{
+	
+}
+
+TEST_CASE("(Add, Probe) element added, we need to probe, wrap around")
+{
+	
+}
+
+TEST_CASE("(Add, Probe) element added, probe, NOT probe")
 {
 	
 }

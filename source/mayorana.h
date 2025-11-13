@@ -1195,8 +1195,82 @@ hash_map_compare_keys(hash_map_t *_map, void *_key, u32 _key_size, u32 _bucket_i
 	return bytes_compare(bucket.key, _key, _key_size);	
 }
 
+
+
 void* 
-hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
+hash_map_find(hash_map_t *_map, void *_key, u32 _key_size)
+{
+	void* result = 0;
+	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
+	assert(_map->size != 0);	
+	
+	u32 bucket_idx = hashed_id % _map->size;
+	assert(bucket_idx < _map->size);
+	
+	u32 data_size = _map->data_size;
+	hash_bucket_t *bucket = &_map->buckets[bucket_idx];
+	
+	switch(bucket->state)
+	{		
+		case node_state_occupied:
+		{
+			if(hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
+			{
+				return bucket->data;
+			}
+			
+			// if not the same keys, then we just iterate until find the one we are looking for if existed
+			// an empty slot or just return
+		}
+		
+		case node_state_stale:
+		{
+			// TODO: HASH MAP scope this iteration search method
+			// iterate until we find an empty bucket or the one we are looking for, since could 
+			// have been probed when added.
+			
+			u32 idx = bucket_idx + 1;
+			u32 idx_to_check = idx;
+			while(idx_to_check != bucket_idx)
+			{									
+				hash_bucket_t *bucket_it = &_map->buckets[idx];
+				switch(bucket_it->state)
+				{
+					case node_state_empty:
+					{
+						return 0;							
+					}
+					case node_state_occupied:
+					{
+						if(bytes_compare(_key, bucket_it->key, _key_size))
+						{
+							return bucket_it->data;
+						}
+					}
+					break;
+				}
+				
+				++idx;	
+				
+				// safe wrap around
+				idx_to_check = idx < _map->size 
+					? idx
+					: _map->size % idx;
+				
+			}
+		}
+		break;
+		
+		default:break;
+	}
+	
+	return 0;
+}
+
+
+// TODO Create the version with the out idx
+void* 
+hash_map_find_v(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 {
 	void* result = 0;
 	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
@@ -1227,8 +1301,11 @@ hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 			// TODO: HASH MAP scope this iteration search method
 			// iterate until we find an empty bucket or the one we are looking for, since could 
 			// have been probed when added.
-			for(u32 idx = bucket_idx + 1; idx < _map->size; ++idx)
-			{
+			
+			u32 idx = bucket_idx + 1;
+			u32 idx_to_check = idx;
+			while(idx_to_check != bucket_idx)
+			{									
 				hash_bucket_t *bucket_it = &_map->buckets[idx];
 				switch(bucket_it->state)
 				{
@@ -1246,6 +1323,13 @@ hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 					}
 					break;
 				}
+								
+				++idx;	
+				
+				// safe wrap around
+				idx_to_check = idx < _map->size 
+					? idx
+					: _map->size % idx;
 				
 			}
 		}
@@ -1260,8 +1344,7 @@ hash_map_find(hash_map_t *_map, void *_key, u32 _key_size, u32 *_out_idx)
 hash_bucket_t* 
 hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 {	
-	u32 found_idx = 0;
-	if(hash_map_find(_map, _key, _key_size, &found_idx) != 0)
+	if(hash_map_find(_map, _key, _key_size) != 0)
 	{
 		return 0;
 	}
@@ -1278,9 +1361,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 	switch(bucket->state)
 	{
 		case node_state_stale:
-		{
-			// TODO: HASH MAP function for initializing a bucket.
-			
+		{			
 			bucket->state = node_state_occupied;
 			bucket->key_size = _key_size;
 			bytes_copy(bucket->key, _key, _key_size);
@@ -1338,7 +1419,7 @@ hash_map_remove(hash_map_t *_map, void *_key, u32 _key_size)
 {
 	
 	u32 key_idx = 0;
-	if(void* found_data = hash_map_find(_map, _key, _key_size, &key_idx))
+	if(void* found_data = hash_map_find_v(_map, _key, _key_size, &key_idx))
 	{
 		_map->buckets[key_idx].state = node_state_stale;
 		return true;
@@ -1351,53 +1432,34 @@ hash_map_remove(hash_map_t *_map, void *_key, u32 _key_size)
 // Iterate from  bucket to bucket until we find a free one or until we find a stale one.
 internal_f u32 
 hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data)
-{	
+{
 	u32 map_size = _hash_map->size;
-	u32 possible_bucket_idx = _from_idx;
-	for(u32 idx = _from_idx + 1; idx < map_size; ++idx)
-	{						
-		hash_bucket_t bucket = _hash_map->buckets[idx];
+	u32 idx = _from_idx + 1;
+	u32 idx_to_check = idx;
+	while(idx_to_check != _from_idx)
+	{								
+		hash_bucket_t bucket = _hash_map->buckets[idx_to_check];
 		switch(bucket.state)
 		{
+			// At this point the key we know is not already present in the map.
+			// so if a stale or an empty bucket is found, return that idx.
 			case node_state_stale:
-			{
-				possible_bucket_idx = idx;
-				// keep iterating to make sure we dont repeat keys;
-			}
-			break;			
-						
-			case node_state_occupied:
-			{
-				if(hash_map_compare_keys(_hash_map, _key, _key_size, idx))
-				{
-					// key already present, return this idx for comparison, to avoid returning a bool and the u32
-					return _from_idx;
-				} 
-			}
-			break;
-			
-			
-			//  check if we found a stale one before this empty one, if not, then return this bucket.
 			case node_state_empty:
 			{
-				if(possible_bucket_idx == _from_idx)
-				{
-					// if not stale bucket found before this empty one, then return this bucket.
-					possible_bucket_idx = idx;
-				}
-				
-				
-				return possible_bucket_idx;
-			}
-			break;
-			
+				return idx_to_check;
+			}						
 			default: break;
 		}
 		
+		
+		idx++;
+		idx_to_check = idx < map_size
+			? idx
+			: map_size % idx;
 	}
 	
 	
-	return possible_bucket_idx;
+	return _from_idx;
 }
 
 
@@ -1409,9 +1471,16 @@ hash_map_create(arena, map_size, sizeof(key_type), sizeof(data_type), &function)
 #define HASH_MAP_STRING(arena, map_size, data_type, function) \
 hash_map_create(arena, map_size, 30, sizeof(data_type), &function)
 
-// Hash Map with a string as the key, but in this case with custom string size. <char*(custom type), type>
-#define HASH_MAP_STRING_SPECIFIC(arena, map_size, key_size, data_type, function) \
-hash_map_create(arena, map_size, key_size, sizeof(data_type), &function)
+// Hash Map with a string as the key, but in this case with custom string size. <char*(custom size), type>
+#define HASH_MAP_STRING_SPECIFIC(arena, map_size, string_key_size, data_type, function) \
+hash_map_create(arena, map_size, string_key_size, sizeof(data_type), &function)
+
+
+#define HASH_MAP_FIND(map, key_type, key) \
+hash_map_find(&map, key, sizeof(key_type))
+
+#define HASH_MAP_FIND_STRING(map, buffer) \
+hash_map_find(&map, buffer, cstr_len(buffer) + 1);
 
 
 
