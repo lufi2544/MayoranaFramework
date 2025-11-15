@@ -1284,7 +1284,7 @@ hash_map_find_v(hash_map_t *_map, void *_key, u32 _key_size, u32 *out_idx)
 	return found_data;
 }
 
-global_f hash_bucket_t* 
+global_f void* 
 hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 {	
 	if(hash_map_find(_map, _key, _key_size) != 0)
@@ -1310,7 +1310,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 			bytes_copy(bucket->key, _key, _key_size);
 			bytes_copy(bucket->data, _new_data, data_size);
 			
-			return bucket;
+			return bucket->data;
 		}
 		break;
 		
@@ -1330,7 +1330,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 					bytes_copy(target_bucket->key, _key, _key_size);
 					bytes_copy(target_bucket->data, _new_data, data_size);
 					
-					return target_bucket;
+					return target_bucket->data;
 				}
 			}
 			
@@ -1346,7 +1346,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 			bytes_copy(target_bucket->key, _key, _key_size);
 			bytes_copy(target_bucket->data, _new_data, data_size);
 			
-			return target_bucket;
+			return target_bucket->data;
 		}
 		break;
 		
@@ -1378,6 +1378,10 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 {
 	u32 map_size = _hash_map->size;
 	u32 idx = _from_idx + 1;
+	idx = idx < map_size
+		? idx
+		: idx % map_size;
+	
 	u32 idx_to_check = idx;
 	while(idx_to_check != _from_idx)
 	{								
@@ -1398,7 +1402,7 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 		idx++;
 		idx_to_check = idx < map_size
 			? idx
-			: map_size % idx;
+			: idx % map_size;
 	}
 	
 	
@@ -1406,6 +1410,10 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 }
 
 // NOTE: MACROS
+
+
+#define GLUE_(a, b) a##b
+#define GLUE(a, b) GLUE_(a, b)
 
 // CREATE
 #define HASH_MAP(arena, map_size, key_type, data_type, function) \
@@ -1421,13 +1429,21 @@ hash_map_create(arena, map_size, string_key_size, sizeof(data_type), &function)
 
 
 // ADD
-/* (hash_bucket_t*)*/#define HASH_MAP_ADD(map, key, data) \
-hash_map_add(&map, &key, sizeof(key), &data)
+#define HASH_MAP_ADD(map, key_type, data_type, key, data)                   \
+do {                                                                        \
+key_type  GLUE(_hash_key_, __LINE__)  = (key_type)(key);                \
+data_type GLUE(_hash_data_, __LINE__) = (data_type)(data);              \
+hash_map_add(&(map),(void*)&GLUE(_hash_key_, __LINE__), sizeof(key_type), (void*)&GLUE(_hash_data_, __LINE__)); \
+} while (0)
+
 
 
 // FIND
-#define HASH_MAP_FIND(map, key_type, key) \
-hash_map_find(&map, key, sizeof(key_type))
+#define HASH_MAP_FIND(map, key_type, data_type, key, out_ptr) \
+do{ \
+key_type GLUE(hashed_key, key) = (key_type)key; \
+out_ptr = (data_type*)hash_map_find(&map, &GLUE(hashed_key, key), sizeof(key_type)); \
+} while(0)
 
 #define HASH_MAP_FIND_STRING(map, buffer) \
 hash_map_find(&map, buffer, cstr_len(buffer) + 1);

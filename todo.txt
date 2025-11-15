@@ -15,7 +15,7 @@ MAIN:
 
 
 - Hash Map:
-	- detection of full map.
+	- add more tests for edge cases.
 
  TODO: the hash map upon addition performs 2 iterations: one for check if existed, and another one for find a good spot,
 	   maybe we should have just one.

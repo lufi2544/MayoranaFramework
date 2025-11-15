@@ -76,7 +76,11 @@ TEST_CASE("Hash Map, value add, <char*, u32>")
 	char key[10] = "Hello";
 	u32 data = 10;
 	u32 len = cstr_len(key) + 1;
-	hash_bucket_t *bucket = hash_map_add(&map, (void*)key, len, &data);
+	hash_map_add(&map, (void*)key, len, &data);
+	u32 idx = 0;
+	hash_map_find_v(&map, (void*)key, len, &idx);
+	
+	hash_bucket_t *bucket = &map.buckets[idx];
 		
 		
 	char* b_key = (char*)bucket->key;
@@ -97,7 +101,11 @@ TEST_CASE("(Find), added element, just find it")
 	char key[10] = "Hello";
 	u32 data = 10;
 	u32 len = cstr_len(key) + 1;
-	hash_bucket_t *bucket = hash_map_add(&map, (void*)key, len, &data);
+	hash_map_add(&map, (void*)key, len, &data);
+	u32 idx = 0;
+	hash_map_find_v(&map, (void*)key, len, &idx);
+	
+	hash_bucket_t *bucket = &map.buckets[idx];
 	
 	void* found_data = HASH_MAP_FIND_STRING(map, key);	
 	CHECK_EQ((found_data != 0), true);				
@@ -111,17 +119,17 @@ TEST_CASE("(Add), bucket already occupied from past hash, probing and wrapp arou
 	u32 key = 8;
 	u32 data = 20;
 	
-	HASH_MAP_ADD(map, key, data);
+	HASH_MAP_ADD(map, u32, u32, key, data);
 	
 	u32 key_1 = 9;
 	u32 data_1 = 20;
 	
-	HASH_MAP_ADD(map, key_1, data_1);
+	HASH_MAP_ADD(map, u32, u32, key_1, data_1);
 	
 	u32 key_2 = 18;
 	u32 data_2 = 22;
 	
-	HASH_MAP_ADD(map, key_2, data_2);
+	HASH_MAP_ADD(map, u32, u32, key_2, data_2);
 	
 	
 	u32 idx = 99;
@@ -140,17 +148,17 @@ TEST_CASE("(Add), Add element, remove it, then add same hashed element again, to
 	
 	u32 key = 8;
 	u32 data = 20;	
-	HASH_MAP_ADD(map, key, data);
+	HASH_MAP_ADD(map, u32, u32, key, data);
 	
 	u32 key_1 = 9;
 	u32 data_1 = 20;	
-	HASH_MAP_ADD(map, key_1, data_1);
+	HASH_MAP_ADD(map, u32, u32, key_1, data_1);
 	
 	bool b_removed = HASH_MAP_REMOVE(map, key);
 	
 	u32 key_2 = 18;
 	u32 data_2 = 22;	
-	HASH_MAP_ADD(map, key_2, data_2);
+	HASH_MAP_ADD(map, u32, u32, key_2, data_2);
 	
 	
 	u32 idx = 99;
@@ -159,6 +167,29 @@ TEST_CASE("(Add), Add element, remove it, then add same hashed element again, to
 	CHECK_EQ((idx == 8), true);
 	CHECK_EQ((found_data != 0), true);
 	
+}
+
+
+TEST_CASE("HashMap, insert until capacity then fail to insert more")
+{
+    SCRATCH();
+    hash_map_t map = create_u32_hash_map(temp_arena);
+	
+    for (u32 i = 0; i < map.size; i++)
+	{
+		u32 data = i * 10;
+		HASH_MAP_ADD(map, u32, u32, i, data);
+		u32 *found_data = 0;
+		HASH_MAP_FIND(map, u32, u32, i, found_data);
+        CHECK_NE((found_data == 0), true);
+	}
+		
+	HASH_MAP_ADD(map, u32, u32, 999, 111);
+	
+	u32 *found_data = 0;
+	HASH_MAP_FIND(map, u32, u32, 999, found_data);
+	
+    CHECK_EQ((found_data == 0), true);
 }
 
 
