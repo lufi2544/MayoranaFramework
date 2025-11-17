@@ -1284,14 +1284,24 @@ hash_map_find_v(hash_map_t *_map, void *_key, u32 _key_size, u32 *out_idx)
 	return found_data;
 }
 
+/**
+* We try to add the data with the specified key to the hash map.
+* When iterating over the buckets, if the key is already in the map, we will replace it, if not
+* we will probe and try either to replace or add.
+* 
+* @return memory ptr to the added data.
+*/
 global_f void* 
 hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 {	
-	if(hash_map_find(_map, _key, _key_size) != 0)
-	{
-		return 0;
-	}
-
+	u32 found_idx = 0;
+	void* found_data = hash_map_find_v(_map, _key, _key_size, &found_idx);
+	if (found_data != 0)
+	{		
+		hash_bucket_t *target_bucket = &_map->buckets[found_idx];		
+		bytes_copy(target_bucket->data, _new_data, _map->data_size);
+		return target_bucket->data;
+	}		
 	
 	u32 hashed_id = (*(_map->hash_function))(_key, _key_size);
 	assert(_map->size != 0);	
@@ -1316,14 +1326,22 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 		
 		case node_state_occupied:
 		{
-			// if had the same key then return, else probe			
-			if(!bytes_compare(_key, bucket->key, bucket->key_size))
+			
+			// if occupied and the keys are the same, then replace, if not, probe and try to either replace or add.
+		
+			if (hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
 			{
-				// probe, take origin the bucket_idx, so if returned, no bucket found or key already present
+				// replace
+				bytes_copy(bucket->data, _new_data, data_size);
+			}			
+			else
+			{
+				// probe
+				
 				u32 found_bucket_idx = hash_map_probe(_map, bucket_idx, _key, _key_size, _new_data);	
 				if(found_bucket_idx != bucket_idx)
 				{
-					hash_bucket_t *target_bucket = &_map->buckets[found_bucket_idx];					
+					hash_bucket_t *target_bucket = &_map->buckets[found_bucket_idx];
 					
 					target_bucket->state = node_state_occupied;
 					target_bucket->key_size = _key_size;
@@ -1333,6 +1351,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 					return target_bucket->data;
 				}
 			}
+			
 			
 		}
 		break;
@@ -1372,7 +1391,11 @@ hash_map_remove(hash_map_t *_map, void *_key, u32 _key_size)
 }
 
 
-// Iterate from  bucket to bucket until we find a free one or until we find a stale one.
+/** Iterate from  bucket to bucket until:
+ - we find a free one.
+ - we find a stale one.
+ - we find an occupied bucket but with the same key, then we replace the data.
+*/
 internal_f u32 
 hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data)
 {
@@ -1394,7 +1417,16 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 			case node_state_empty:
 			{
 				return idx_to_check;
-			}						
+			}
+			case node_state_occupied:
+			{
+				if(hash_map_compare_keys(_hash_map, _key, _key_size, idx_to_check))
+				{
+					// they are the same, then REPLACE
+					return idx_to_check;
+				}
+			}
+			break;
 			default: break;
 		}
 		
