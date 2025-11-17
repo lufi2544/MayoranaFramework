@@ -1381,7 +1381,8 @@ hash_map_remove(hash_map_t *_map, void *_key, u32 _key_size)
 {
 	
 	u32 key_idx = 0;
-	if(void* found_data = hash_map_find_v(_map, _key, _key_size, &key_idx))
+	void* found_data = hash_map_find_v(_map, _key, _key_size, &key_idx);
+	if (found_data != 0)
 	{
 		_map->buckets[key_idx].state = node_state_stale;
 		return true;
