@@ -1121,7 +1121,7 @@ typedef struct
 	
 } hash_bucket_t;
 
-typedef u32 (*hash_function_signature)(void*, u32);
+typedef u32 (*hash_function_signature)(void* /*key*/, u32 /*key size*/);
 
 
 typedef struct
