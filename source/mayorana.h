@@ -1505,16 +1505,16 @@ hash_map_remove(&map, &key, sizeof(key))
 // HASH FUNCTIONS
 
 global_f u32 
-hash_string(void* key, u32 key_size)
+hash_function_string(void* key, u32 key_size)
 {
 	string_t* string = (string_t*)key;
 	return string->size;
 }
 
 global_f u32
-hash_c_string(void* key, u32 key_size)
+hash_function_c_string(void* key, u32 key_size)
 {
-	char* buff = (char*)key;	
+	char* buff = (char*)key;
 	return cstr_size(buff);
 }
 
