@@ -186,6 +186,7 @@ TEST_CASE("HashMap, insert until capacity then fail to insert more")
 		
 	HASH_MAP_ADD(map, u32, u32, 999, 111);
 	
+	
 	u32 *found_data = 0;
 	HASH_MAP_FIND(map, u32, u32, 999, found_data);
 	
@@ -338,6 +339,150 @@ TEST_CASE("Full table insert fails and probing wraps correctly")
     CHECK_EQ((res == 0), true);
 	
 }
+
+struct mock_data
+{		
+	u32 id;
+	u32 value;
+	
+	bool operator ==(const mock_data& other)
+	{
+		return (id == other.id) && (value == other.value);
+	}
+};
+
+
+TEST_CASE("Hash Map with key as char* and a struct as data")
+{
+	
+	SCRATCH();
+	
+	hash_map_t map = hash_map_create(temp_arena, 10, 0, sizeof(mock_data), &hash_c_string);
+	
+	char* key = (char*)push_size(temp_arena, 10);
+	bytes_set(key, 0, 10);
+	
+	mock_data data;
+	data.id = 10;
+	data.value = 1000;
+	
+	hash_map_add(&map, key, 10, &data);
+	
+	void* found_data = hash_map_find(&map, key, 10);	
+	CHECK_EQ((found_data != 0), true);
+			
+	mock_data* mock_found_data = (mock_data*)found_data;	
+	CHECK_EQ((*mock_found_data == data), true);	
+}
+
+TEST_CASE("Hash Map string keys + struct data, multiple adds and finds")
+{
+	SCRATCH();
+    
+	hash_map_t map = hash_map_create(temp_arena, 20, 0, sizeof(mock_data), &hash_c_string);
+	
+	char key1[10] = "Hello";
+	char key2[10] = "World";
+	char key3[10] = "Mayor";
+	
+	mock_data d1 = { 1, 100 };
+	mock_data d2 = { 2, 200 };
+	mock_data d3 = { 3, 300 };
+    
+	hash_map_add(&map, key1, cstr_len(key1) + 1, &d1);
+	hash_map_add(&map, key2, cstr_len(key2) + 1, &d2);
+	hash_map_add(&map, key3, cstr_len(key3) + 1, &d3);
+	
+	mock_data *f1 = (mock_data*)hash_map_find(&map, key1, cstr_len(key1) + 1);
+	mock_data *f2 = (mock_data*)hash_map_find(&map, key2, cstr_len(key2) + 1);
+	mock_data *f3 = (mock_data*)hash_map_find(&map, key3, cstr_len(key3) + 1);
+	
+	CHECK_EQ((f1 != 0), true);
+	CHECK_EQ((f2 != 0), true);
+	CHECK_EQ((f3 != 0), true);
+	
+	CHECK_EQ((*f1 == d1), true);
+	CHECK_EQ((*f2 == d2), true);
+	CHECK_EQ((*f3 == d3), true);
+}
+
+TEST_CASE("Hash Map remove struct by string key, other elements preserved")
+{
+	SCRATCH();
+    
+	hash_map_t map = hash_map_create(temp_arena, 10, 0, sizeof(mock_data), &hash_c_string);
+	
+	char k1[] = "K1";
+	char k2[] = "K2";
+	char k3[] = "K3";
+	
+	mock_data d1 = { 11, 100 };
+	mock_data d2 = { 22, 200 };
+	mock_data d3 = { 33, 300 };
+    
+	hash_map_add(&map, k1, 3, &d1);
+	hash_map_add(&map, k2, 3, &d2);
+	hash_map_add(&map, k3, 3, &d3);
+	
+	bool removed = hash_map_remove(&map, k2, 3);
+	CHECK_EQ(removed, true);
+	
+	CHECK_EQ((hash_map_find(&map, k2, 3) == 0), true);
+	
+	CHECK_EQ((*((mock_data*)hash_map_find(&map, k1, 3)) == d1), true);
+	CHECK_EQ((*((mock_data*)hash_map_find(&map, k3, 3)) == d3), true);
+}
+
+TEST_CASE("Hash Map struct collision with string keys")
+{
+	SCRATCH();
+	
+	hash_map_t map = hash_map_create(temp_arena, 5, 0, sizeof(mock_data), &hash_c_string);
+	
+	char a[] = "Red";
+	char b[] = "Car";
+	char c[] = "Sky";
+	
+	mock_data da = { 10, 1000 };
+	mock_data db = { 20, 2000 };
+	mock_data dc = { 30, 3000 };
+	
+	hash_map_add(&map, a, cstr_len(a) + 1, &da);
+	hash_map_add(&map, b, cstr_len(b) + 1, &db);
+	hash_map_add(&map, c, cstr_len(c) + 1, &dc);
+	
+	mock_data *fa = (mock_data*)hash_map_find(&map, a, cstr_len(a) + 1);
+	mock_data *fb = (mock_data*)hash_map_find(&map, b, cstr_len(b) + 1);
+	mock_data *fc = (mock_data*)hash_map_find(&map, c, cstr_len(c) + 1);
+	
+	CHECK_EQ((fa != 0), true);
+	CHECK_EQ((fb != 0), true);
+	CHECK_EQ((fc != 0), true);
+    
+	CHECK_EQ((*fa == da), true);
+	CHECK_EQ((*fb == db), true);
+	CHECK_EQ((*fc == dc), true);
+}
+
+TEST_CASE("Hash Map struct overwrite existing key")
+{
+	SCRATCH();
+    
+	hash_map_t map = hash_map_create(temp_arena, 8, 0, sizeof(mock_data), &hash_c_string);
+	
+	char key[] = "Hello";
+	mock_data d1 = { 44, 5000 };
+	mock_data d2 = { 77, 9000 };
+	
+	HASH_MAP_STR_ADD(map, key, &d1);
+	HASH_MAP_STR_ADD(map, key, &d2);
+	
+	mock_data* found = 0;
+	HASH_MAP_STR_FIND(map, mock_data, key, found);
+
+	CHECK_EQ((*found == d2), true);
+}
+
 
 
 TEST_SUITE_END;

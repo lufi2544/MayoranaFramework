@@ -604,6 +604,7 @@ typedef struct string_t
 } string_t;
 
 
+
 #define DEFAULT_EMPTY_STRING_LEN 20
 
 
@@ -1469,6 +1470,12 @@ data_type GLUE(_hash_data_, __LINE__) = (data_type)(data);              \
 hash_map_add(&(map),(void*)&GLUE(_hash_key_, __LINE__), sizeof(key_type), (void*)&GLUE(_hash_data_, __LINE__)); \
 } while (0)
 
+#define HASH_MAP_STR_ADD(map, key, data) \
+do { \
+	char* GLUE(_to_add_key, __LINE__) = (char*)key; \
+	u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1; \
+hash_map_add(&map, GLUE(_to_add_key, __LINE__), GLUE(_to_add_size, __LINE__), (void*)data); \
+}while(0)
 
 
 // FIND
@@ -1478,12 +1485,38 @@ key_type GLUE(hashed_key, key) = (key_type)key; \
 out_ptr = (data_type*)hash_map_find(&map, &GLUE(hashed_key, key), sizeof(key_type)); \
 } while(0)
 
+
+#define HASH_MAP_STR_FIND(map, data_type, key, out_ptr) \
+do{ \
+	char* GLUE(_to_add_key, __LINE__) = (char*)key; \
+u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1;		\
+data_type* GLUE(_to_find_data, __LINE__) = (data_type*)out_ptr; \
+out_ptr = (data_type*)hash_map_find(&map, GLUE(_to_add_key, __LINE__), GLUE(_to_add_size, __LINE__)); \
+}while(0)
+
 #define HASH_MAP_FIND_STRING(map, buffer) \
 hash_map_find(&map, buffer, cstr_len(buffer) + 1);
 
 // REMOVE
 #define HASH_MAP_REMOVE(map, key) \
 hash_map_remove(&map, &key, sizeof(key))
+
+
+// HASH FUNCTIONS
+
+global_f u32 
+hash_string(void* key, u32 key_size)
+{
+	string_t* string = (string_t*)key;
+	return string->size;
+}
+
+global_f u32
+hash_c_string(void* key, u32 key_size)
+{
+	char* buff = (char*)key;	
+	return cstr_size(buff);
+}
 
 // NOTE: PART HASH MAP END
 
