@@ -61,11 +61,6 @@ TEST_CASE("Hash map, value add, bucket at exact idx, key and data, <u32, u32> OK
 	CHECK_EQ((*b_data), data);
 }
 
-u32 hash_function_string(void* k, u32 key_size)
-{
-	char* key = (char*)(k);	
-	return cstr_len(key);
-}
 
 TEST_CASE("Hash Map, value add, <char*, u32>")
 {
@@ -81,8 +76,8 @@ TEST_CASE("Hash Map, value add, <char*, u32>")
 	hash_map_find_v(&map, (void*)key, len, &idx);
 	
 	hash_bucket_t *bucket = &map.buckets[idx];
-		
-		
+    
+    
 	char* b_key = (char*)bucket->key;
 	u32* b_data = (u32*)bucket->data;
 	
@@ -183,7 +178,7 @@ TEST_CASE("HashMap, insert until capacity then fail to insert more")
 		HASH_MAP_FIND(map, u32, u32, i, found_data);
         CHECK_NE((found_data == 0), true);
 	}
-		
+    
 	HASH_MAP_ADD(map, u32, u32, 999, 111);
 	
 	
@@ -357,7 +352,7 @@ TEST_CASE("Hash Map with key as char* and a struct as data")
 	
 	SCRATCH();
 	
-	hash_map_t map = hash_map_create(temp_arena, 10, 0, sizeof(mock_data), &hash_c_string);
+	hash_map_t map = hash_map_create(temp_arena, 10, 0, sizeof(mock_data), &hash_function_string);
 	
 	char* key = (char*)push_size(temp_arena, 10);
 	bytes_set(key, 0, 10);
@@ -370,7 +365,7 @@ TEST_CASE("Hash Map with key as char* and a struct as data")
 	
 	void* found_data = hash_map_find(&map, key, 10);	
 	CHECK_EQ((found_data != 0), true);
-			
+    
 	mock_data* mock_found_data = (mock_data*)found_data;	
 	CHECK_EQ((*mock_found_data == data), true);	
 }
@@ -379,7 +374,7 @@ TEST_CASE("Hash Map string keys + struct data, multiple adds and finds")
 {
 	SCRATCH();
     
-	hash_map_t map = hash_map_create(temp_arena, 20, 0, sizeof(mock_data), &hash_c_string);
+	hash_map_t map = hash_map_create(temp_arena, 20, 0, sizeof(mock_data), &hash_function_string);
 	
 	char key1[10] = "Hello";
 	char key2[10] = "World";
@@ -410,7 +405,7 @@ TEST_CASE("Hash Map remove struct by string key, other elements preserved")
 {
 	SCRATCH();
     
-	hash_map_t map = hash_map_create(temp_arena, 10, 0, sizeof(mock_data), &hash_c_string);
+	hash_map_t map = hash_map_create(temp_arena, 10, 0, sizeof(mock_data), &hash_function_string);
 	
 	char k1[] = "K1";
 	char k2[] = "K2";
@@ -437,7 +432,7 @@ TEST_CASE("Hash Map struct collision with string keys")
 {
 	SCRATCH();
 	
-	hash_map_t map = hash_map_create(temp_arena, 5, 0, sizeof(mock_data), &hash_c_string);
+	hash_map_t map = hash_map_create(temp_arena, 5, 0, sizeof(mock_data), &hash_function_string);
 	
 	char a[] = "Red";
 	char b[] = "Car";
@@ -468,7 +463,7 @@ TEST_CASE("Hash Map struct overwrite existing key")
 {
 	SCRATCH();
     
-	hash_map_t map = hash_map_create(temp_arena, 8, 0, sizeof(mock_data), &hash_c_string);
+	hash_map_t map = hash_map_create(temp_arena, 8, 0, sizeof(mock_data), &hash_function_string);
 	
 	char key[] = "Hello";
 	mock_data d1 = { 44, 5000 };
@@ -479,7 +474,7 @@ TEST_CASE("Hash Map struct overwrite existing key")
 	
 	mock_data* found = 0;
 	HASH_MAP_STR_FIND(map, mock_data, key, found);
-
+    
 	CHECK_EQ((*found == d2), true);
 }
 
