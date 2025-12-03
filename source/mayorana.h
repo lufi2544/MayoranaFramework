@@ -55,9 +55,11 @@ typedef double f64;
 #include <mach/mach.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#define _APPLE
 #endif // __APPLE__
 
 #ifdef _WIN32
+#define _WINDOWS
 #include "Windows.h"
 #endif // _WIN32
 
@@ -201,7 +203,7 @@ typedef struct scratch_t
 	
 	/** Cached memory ptr from the parent arena when created this scratch, when ended, the parent arena is reset to this. */
     u64 cached_parent_used;
-		
+    
 #ifdef __cplusplus
 	
 	// C++ constructor/destructor
@@ -336,8 +338,9 @@ cstr_len(const char* _str)
 
 ///// BUFFER FORWARD DECLARATIONS
 
+struct buffer_t;
 global bool buffer_is_equal(struct buffer_t a, struct buffer_t b);
-global void buffer_copy_deep(const struct buffer_t *_src, struct buffer_t *_dest);
+global_f void buffer_copy_deep(const struct buffer_t *_src, struct buffer_t *_dest);
 
 /////
 
@@ -449,6 +452,8 @@ free_buffer(buffer_t *_buffer)
 // NOTE: PART STRING
 
 /////// Forward Declarations ///////
+struct string_t;
+
 global void
 string_push_char(struct string_t *_str, u8 character);
 
@@ -458,8 +463,8 @@ string_contains(struct string_t *_str, const char* b);
 global bool 
 is_equal_cstr(const struct string_t *_str, const char* b);
 
-global void
-print_string(struct string_t *string);
+global_f void
+print_string( struct string_t *string);
 //////
 
 
@@ -790,7 +795,7 @@ string_contains(string_t *_str, const char* b)
 	return true;
 }
 
-global void print_string(string_t *string)
+global_f void print_string(struct string_t *string)
 {
 	u8 *buffer_as_data = (u8*)string->buffer.data;
 	printf("%s \n", buffer_as_data);
@@ -1136,7 +1141,7 @@ typedef struct
 	u32 size;
 	u32 data_size;
 	u32 key_size;
-		
+    
 } hash_map_t;
 
 
@@ -1329,7 +1334,7 @@ hash_map_add(hash_map_t *_map, void* _key, u32 _key_size, void* _new_data)
 		{
 			
 			// if occupied and the keys are the same, then replace, if not, probe and try to either replace or add.
-		
+            
 			if (hash_map_compare_keys(_map, _key, _key_size, bucket_idx))
 			{
 				// replace
@@ -1472,8 +1477,8 @@ hash_map_add(&(map),(void*)&GLUE(_hash_key_, __LINE__), sizeof(key_type), (void*
 
 #define HASH_MAP_STR_ADD(map, key, data) \
 do { \
-	char* GLUE(_to_add_key, __LINE__) = (char*)key; \
-	u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1; \
+char* GLUE(_to_add_key, __LINE__) = (char*)key; \
+u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1; \
 hash_map_add(&map, GLUE(_to_add_key, __LINE__), GLUE(_to_add_size, __LINE__), (void*)data); \
 }while(0)
 
@@ -1488,7 +1493,7 @@ out_ptr = (data_type*)hash_map_find(&map, &GLUE(hashed_key, key), sizeof(key_typ
 
 #define HASH_MAP_STR_FIND(map, data_type, key, out_ptr) \
 do{ \
-	char* GLUE(_to_add_key, __LINE__) = (char*)key; \
+char* GLUE(_to_add_key, __LINE__) = (char*)key; \
 u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1;		\
 data_type* GLUE(_to_find_data, __LINE__) = (data_type*)out_ptr; \
 out_ptr = (data_type*)hash_map_find(&map, GLUE(_to_add_key, __LINE__), GLUE(_to_add_size, __LINE__)); \
@@ -1543,7 +1548,7 @@ std::remove_reference_t<T>&& Move(T& val)
 /////////////////////////
 //// Multi-Threading
 /////////////////////////
- 
+
 #include <functional>
 //typedef void(*thread_function_t)(void);
 
@@ -1584,7 +1589,7 @@ DWORD thread_main(LPVOID _data)
 
 class mythread_t
 {
-public:
+    public:
 	mythread_t() = default;
 	mythread_t(mythread_t const&) = delete;	
 	mythread_t& operator=(mythread_t const&) = delete;
@@ -1629,7 +1634,7 @@ public:
 			printf("Closing Handle \n");
 			handle = 0;
 		}
-				
+        
 	}
 	
 	void start()
@@ -1672,7 +1677,7 @@ typedef std::thread mthread_t;
 // NOTE: PART Multi-Threading
 class thread_guard_t
 {
-public:
+    public:
 	thread_guard_t(mthread_t&& _r_thread)
 	{
 		this_thread = Move(_r_thread);
@@ -1692,7 +1697,7 @@ public:
 		}
 	}
 	
-private:
+    private:
 	mthread_t this_thread;
 };
 
@@ -1709,7 +1714,7 @@ typedef std::mutex mutex_t;
  */
 class critical_section_t
 {
-public:
+    public:
 	critical_section_t()
 	{
 		InitializeCriticalSection(&this_section);
@@ -1740,7 +1745,7 @@ public:
 		LeaveCriticalSection(&this_section);
 	}
 	
-private:
+    private:
 	
 #ifdef _WIN32
 	CRITICAL_SECTION this_section;
@@ -1751,7 +1756,7 @@ private:
 // Lock wrapper for critical sections to sync the access to shared data among different threads.
 class scoped_lock_t
 {
-public:
+    public:
 	scoped_lock_t(critical_section_t *_section)
 	{
 		this_section = _section;
@@ -1827,14 +1832,14 @@ class job_manager_t
 			workers[i] = mythread_t(_arena,  name, [this](){ JobLoop(this); });			
 		}
 	}
-		
+    
 	void push_job(job_t _job)
 	{		
 		job_node_t node;
 		node.job = _job;
 		node.id = tail;
 		jobs[tail] = node;
-			
+        
 		InterlockedIncrement(&tail);
 		InterlockedIncrement(&requested_jobs);
 	}
