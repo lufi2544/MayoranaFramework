@@ -125,20 +125,20 @@ mayorana_memory_init()
 {
 	
 	MAYORANA_LOG("--- MEMORY ---");
-#ifdef __APPLE__    
+#ifdef _APPLE    
     g_memory.transient.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);   
     g_memory.permanent.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE ,MAP_ANON | MAP_PRIVATE, -1, 0);    
 	
 	MAYORANA_LOG("-- Memory Init MacOS--");
-#endif // __APPLE__
+#endif // _APPLE
 	
-#ifdef _WIN32
+#ifdef _WINDOWS
 	g_memory.transient.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.permanent.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.threads.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_THREAD_ARENA_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	
 	MAYORANA_LOG("-- Memory Init Windows --");
-#endif // _WIN32
+#endif // _WINDOWS
 	
 	
 	g_memory.transient.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
@@ -152,7 +152,7 @@ mayorana_memory_init()
 global void
 mayorana_shutdown()
 {
-#if defined(_WIN32)
+#if defined(_WINDOWS)
 	if(g_memory.permanent.data)
 	{
 		VirtualFree(g_memory.permanent.data, 0, MEM_RELEASE);
@@ -163,7 +163,7 @@ mayorana_shutdown()
 		VirtualFree(g_memory.transient.data, 0, MEM_RELEASE);
 	}
     
-#elif defined(__APPLE__)
+#elif defined(_APPLE)
     
     if (munmap(g_memory.permanent.data, g_memory.permanent.size) != 0) 
     {
