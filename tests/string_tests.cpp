@@ -7,7 +7,7 @@ TEST_CASE("Create String, Empty")
 	SCRATCH();
 	
 	string_t string = STRING(temp_arena);
-		
+    
 	CHECK_NE(string.buffer.data, nullptr);
 	CHECK_EQ(string.buffer.size, DEFAULT_EMPTY_STRING_LEN + 1);
 	
@@ -45,6 +45,17 @@ TEST_CASE("String, Deep Copy")
 	
 	CHECK_NE(s, a);
 	
+}
+
+
+TEST_CASE("String, format")
+{
+    SCRATCH();
+    
+    string_t s = STRING_C(temp_arena, "worker%i", 10);
+    string_t o = STRING_V(temp_arena, "worker10");
+    
+    CHECK_EQ(s, o);
 }
 
 TEST_SUITE_END;

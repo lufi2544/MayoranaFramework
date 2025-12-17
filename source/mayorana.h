@@ -503,6 +503,10 @@ typedef struct string_t
 	
 	string_t() = default;		
 	
+    // for this constructor we use the macro STRING_V
+    //string_t(const char* other)
+    
+    
 	string_t(string_t const& _other)
 	{
 		this->buffer = _other.buffer;
@@ -627,7 +631,7 @@ typedef struct string_t
 // string verbal
 #define STRING_V(arena, content) make_string(arena, 0, content)
 
-#define STRING_C(arena, size, format, ...) make_string_from_c_char(arena, size, format, ##__VA_ARGS__##)
+#define STRING_C(arena, format, ...) make_string_from_c_char(arena, format, ##__VA_ARGS__)
 
 // TODO: Figuring out a way of handling VL strings after creation.
 // string verbal size, ready to be expanded
@@ -687,12 +691,13 @@ make_string(arena_t *_arena, u32 _size, const char* _content)
 }
 
 global string_t
-make_string_from_c_char(arena_t *_arena, u32 _size, const char* _format, ...)
+make_string_from_c_char(arena_t *_arena, const char* _format, ...)
 {
-	char* c_str = (char*)_push_size(_arena, _size * sizeof(char));		
+    int format_size = cstr_size(_format);
+	char* c_str = (char*)_push_size(_arena, (format_size + 1) * sizeof(char));		
 	va_list args;
 	va_start(args, _format);
-	int chars_written = vsnprintf(c_str, _size, _format, args);
+	int chars_written = vsnprintf(c_str, format_size +1, _format, args);
 	va_end(args);		
 	return STRING_V(_arena, c_str);
 }
@@ -1529,6 +1534,8 @@ hash_function_c_string(void* key, u32 key_size)
 // MAYORANA C++ API
 #ifdef __cplusplus
 
+#ifdef _WINDOWS
+
 #include <thread>
 #include <mutex>
 #include <shared_mutex>
@@ -1895,5 +1902,6 @@ void JobLoop(class job_manager_t *_manager)
 	}
 }
 
+#endif // _WINDOWS
 #endif // __cplusplus
 

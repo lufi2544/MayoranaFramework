@@ -4,7 +4,7 @@
 #include "buffer_tests.cpp"
 #include "string_tests.cpp"
 
-#ifndef MACOS
+#ifndef _APPLE
 #include "thread_tests.cpp"
 #endif 
 #include "hash_map_tests.cpp"
