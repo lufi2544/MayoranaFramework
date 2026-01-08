@@ -1835,7 +1835,7 @@ class job_manager_t
 		// Wokers
 		for(u32 i = 0; i < workers_num; ++i)
 		{
-			string_t name = STRING_C(_arena, 10, "worker%i", i);
+			string_t name = STRING_C(_arena, "worker%i", i);
 			workers[i] = mythread_t(_arena,  name, [this](){ JobLoop(this); });			
 		}
 	}
