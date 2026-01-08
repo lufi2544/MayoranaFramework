@@ -1905,3 +1905,30 @@ void JobLoop(class job_manager_t *_manager)
 #endif // _WINDOWS
 #endif // __cplusplus
 
+
+
+// PART: FILE I/O
+#include <stdio.h>
+
+
+buffer_t read_file_and_add_null_at_end(arena_t *_arena, char *_file_name)
+{
+	buffer_t result;
+	FILE *file = fopen(_file_name, "r");
+	if(file)
+	{
+		fseek(file, 0, SEEK_END);
+		size_t file_size = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		
+		u64 buffer_size = file_size + 1;							
+		result.size = buffer_size;
+		result.data = push_size(_arena, buffer_size);		
+		fread(result.data, file_size, 1, file);
+		fclose(file);
+		
+		result.data[file_size] = 0;		
+	}
+	
+	return result;
+}
