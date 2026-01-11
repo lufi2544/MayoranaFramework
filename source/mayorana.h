@@ -104,7 +104,11 @@ global memory_t g_memory;
 
 ///// LOGGING //////
 
+#ifdef MAYORANA_DISABLE_LOGS
+#define MAYORANA_LOG(format, ...)
+#else 
 #define MAYORANA_LOG(format, ...) printf("Mayorana Log:" format "\n", ##__VA_ARGS__)
+#endif // MAYORANA_DISABLE_LOGS
 
 //////
 
@@ -1927,7 +1931,8 @@ buffer_t read_file_and_add_null_at_end(arena_t *_arena, char *_file_name)
 		fread(result.data, file_size, 1, file);
 		fclose(file);
 		
-		result.data[file_size] = 0;		
+		u8* data_as_u8 = (u8*)result.data;
+		data_as_u8[file_size] = 0;		
 	}
 	
 	return result;
