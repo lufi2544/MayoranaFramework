@@ -1,5 +1,11 @@
 ////////////////////////////
 
+/////////////
+TODO:
+- change the project to use simple cpp.
+
+//////////////
+
 TESTS:
 - Write Tests for string_t
 	- Write tests for Deep copy and swallow copy.
@@ -16,6 +22,9 @@ MAIN:
 
 - Hash Map:
 	- add more tests for edge cases.
+
+- string_t
+	- add contantenation of strings.	
 
  TODO: the hash map upon addition performs 2 iterations: one for check if existed, and another one for find a good spot,
 	   maybe we should have just one.
