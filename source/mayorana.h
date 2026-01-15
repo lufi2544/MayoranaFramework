@@ -24,6 +24,7 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef uintptr_t ptr_t;
 
 typedef int8_t s8;
 typedef int16_t s16;
@@ -43,6 +44,7 @@ typedef double f64;
 #define internal_f static
 
 #define ArrayCount(Array) sizeof(Array) / sizeof((Array)[0])
+#define OFFSET_OF(c, v) (u32)(ptr_t)&((c*)0)->v
 
 
 ////////////////////////////////////
@@ -62,7 +64,6 @@ typedef double f64;
 #define _WINDOWS
 #include "Windows.h"
 #endif // _WIN32
-
 
 #define Byte(v) v
 #define Kilobyte(v) 1024 * Byte(v)
