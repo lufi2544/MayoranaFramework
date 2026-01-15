@@ -359,7 +359,7 @@ global_f void buffer_copy_deep(const struct buffer_t *_src, struct buffer_t *_de
  **/
 typedef struct buffer_t
 {
-    void* data;
+    u8* data;
     u64 size;
 	
 #ifdef __cplusplus
@@ -730,7 +730,7 @@ string_copy_deep(arena_t *_arena, const string_t *_other)
 	string_t result;
 	buffer_t this_new_buffer;
 	
-	void* new_data = _push_size(_arena, _other->buffer.size);
+	u8* new_data = (u8*)_push_size(_arena, _other->buffer.size);
 	this_new_buffer.data = new_data;
 	this_new_buffer.size = _other->buffer.size;
 	
@@ -1928,7 +1928,7 @@ buffer_t read_file_and_add_null_at_end(arena_t *_arena, char *_file_name)
 		
 		u64 buffer_size = file_size + 1;							
 		result.size = buffer_size;
-		result.data = push_size(_arena, buffer_size);		
+		result.data = (u8*)push_size(_arena, buffer_size);		
 		fread(result.data, file_size, 1, file);
 		fclose(file);
 		
