@@ -357,7 +357,7 @@ global_f void buffer_copy_deep(const struct buffer_t *_src, struct buffer_t *_de
  *  Normally a buffer is used when writing some bytes to it, so we would know beforehand how many bytes we would need.
  *  But if we would use this for an array or a string, we would need to set the mem to 0 when using.
  **/
-typedef struct buffer_t
+struct buffer_t
 {
     u8* data;
     u64 size;
@@ -374,7 +374,7 @@ typedef struct buffer_t
     }	
 #endif // __cplusplus
 	
-} buffer_t;
+};
 
 
 #define BUFFER_DATA(buffer, type, at) ((type*)buffer.data)[at]
