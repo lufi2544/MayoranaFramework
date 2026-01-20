@@ -506,11 +506,7 @@ struct string_t
 #ifdef __cplusplus	
 	
 	
-	string_t() = default;		
-	
-    // for this constructor we use the macro STRING_V
-    //string_t(const char* other)
-    
+	string_t() = default;	  
     
 	string_t(string_t const& _other)
 	{
