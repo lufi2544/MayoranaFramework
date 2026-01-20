@@ -498,7 +498,7 @@ cstr_size(const char* _str)
 //global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
 
 
-typedef struct string_t
+struct string_t
 {
     buffer_t buffer;
     u32 size;
@@ -615,8 +615,7 @@ typedef struct string_t
     
 #endif // __cplusplus
 	
-} string_t;
-
+};
 
 
 #define DEFAULT_EMPTY_STRING_LEN 20
