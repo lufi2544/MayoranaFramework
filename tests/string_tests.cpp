@@ -58,4 +58,13 @@ TEST_CASE("String, format")
     CHECK_EQ(s, o);
 }
 
+
+TEST_CASE("cstr size test")
+{
+	char name[] = "Juanes";
+	bool b = cstr_size(name) == 6;
+	
+	CHECK_EQ(b, true);
+}
+
 TEST_SUITE_END;
