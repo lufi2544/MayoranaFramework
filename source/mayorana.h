@@ -1453,6 +1453,10 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 	return _from_idx;
 }
 
+
+global_f void* hash_map_get_
+
+
 // NOTE: MACROS
 
 
