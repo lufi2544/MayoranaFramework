@@ -513,7 +513,7 @@ cstr_size(const char* _str)
 	
 	u8* at = (u8*)_str;
 	u8* start = at;
-		
+    
 	for(;*at; ++at);
 	
 	return at - start;
@@ -1305,6 +1305,8 @@ hash_map_find_internal(hash_map_t *_map, void *_key, u32 _key_size, u32 *out_buc
 						}
 					}
 					break;
+                    
+                    default:break;
 				}
 				
 				++idx;	
