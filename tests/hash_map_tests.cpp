@@ -1,5 +1,6 @@
 TEST_SUITE_BEGIN("Hash Map");
 
+
 global_f u32 
 hash_function_u32(void* k, u32 key_size)
 {
@@ -38,7 +39,7 @@ TEST_CASE("Hash_map_init, key size is the max permitted")
 	hash_bucket_t bucket = map.buckets[0];		
 	CHECK_EQ(map.size, 10);
 	CHECK_EQ(map.data_size, sizeof(u32));
-	CHECK_EQ(map.key_size, g_hash_map_max_key_size);
+	CHECK_EQ(map.key_size, HASH_MAP_MAX_KEY_SIZE);
 }
 
 TEST_CASE("Hash map, value add, bucket at exact idx, key and data, <u32, u32> OK")
@@ -70,7 +71,7 @@ TEST_CASE("Hash Map, value add, <char*, u32>")
 	
 	char key[10] = "Hello";
 	u32 data = 10;
-	u32 len = cstr_len(key) + 1;
+	u32 len = cstr_size(key) + 1;
 	hash_map_add(&map, (void*)key, len, &data);
 	u32 idx = 0;
 	hash_map_find_v(&map, (void*)key, len, &idx);
@@ -95,7 +96,7 @@ TEST_CASE("(Find), added element, just find it")
 	
 	char key[10] = "Hello";
 	u32 data = 10;
-	u32 len = cstr_len(key) + 1;
+	u32 len = cstr_size(key) + 1;
 	hash_map_add(&map, (void*)key, len, &data);
 	u32 idx = 0;
 	hash_map_find_v(&map, (void*)key, len, &idx);
@@ -384,13 +385,13 @@ TEST_CASE("Hash Map string keys + struct data, multiple adds and finds")
 	mock_data d2 = { 2, 200 };
 	mock_data d3 = { 3, 300 };
     
-	hash_map_add(&map, key1, cstr_len(key1) + 1, &d1);
-	hash_map_add(&map, key2, cstr_len(key2) + 1, &d2);
-	hash_map_add(&map, key3, cstr_len(key3) + 1, &d3);
+	hash_map_add(&map, key1, cstr_size(key1) + 1, &d1);
+	hash_map_add(&map, key2, cstr_size(key2) + 1, &d2);
+	hash_map_add(&map, key3, cstr_size(key3) + 1, &d3);
 	
-	mock_data *f1 = (mock_data*)hash_map_find(&map, key1, cstr_len(key1) + 1);
-	mock_data *f2 = (mock_data*)hash_map_find(&map, key2, cstr_len(key2) + 1);
-	mock_data *f3 = (mock_data*)hash_map_find(&map, key3, cstr_len(key3) + 1);
+	mock_data *f1 = (mock_data*)hash_map_find(&map, key1, cstr_size(key1) + 1);
+	mock_data *f2 = (mock_data*)hash_map_find(&map, key2, cstr_size(key2) + 1);
+	mock_data *f3 = (mock_data*)hash_map_find(&map, key3, cstr_size(key3) + 1);
 	
 	CHECK_EQ((f1 != 0), true);
 	CHECK_EQ((f2 != 0), true);
@@ -442,13 +443,13 @@ TEST_CASE("Hash Map struct collision with string keys")
 	mock_data db = { 20, 2000 };
 	mock_data dc = { 30, 3000 };
 	
-	hash_map_add(&map, a, cstr_len(a) + 1, &da);
-	hash_map_add(&map, b, cstr_len(b) + 1, &db);
-	hash_map_add(&map, c, cstr_len(c) + 1, &dc);
+	hash_map_add(&map, a, cstr_size(a) + 1, &da);
+	hash_map_add(&map, b, cstr_size(b) + 1, &db);
+	hash_map_add(&map, c, cstr_size(c) + 1, &dc);
 	
-	mock_data *fa = (mock_data*)hash_map_find(&map, a, cstr_len(a) + 1);
-	mock_data *fb = (mock_data*)hash_map_find(&map, b, cstr_len(b) + 1);
-	mock_data *fc = (mock_data*)hash_map_find(&map, c, cstr_len(c) + 1);
+	mock_data *fa = (mock_data*)hash_map_find(&map, a, cstr_size(a) + 1);
+	mock_data *fb = (mock_data*)hash_map_find(&map, b, cstr_size(b) + 1);
+	mock_data *fc = (mock_data*)hash_map_find(&map, c, cstr_size(c) + 1);
 	
 	CHECK_EQ((fa != 0), true);
 	CHECK_EQ((fb != 0), true);
@@ -476,8 +477,61 @@ TEST_CASE("Hash Map struct overwrite existing key")
 	HASH_MAP_STR_FIND(map, mock_data, key, found);
     
 	CHECK_EQ((*found == d2), true);
+		
 }
 
+
+struct mock_data_pair_t
+{
+	char* name;
+	mock_data data;
+};
+
+bool 
+check_exists(mock_data_pair_t *pairs, u32 size, char* to_check_name, mock_data *to_check_data)
+{
+	for(u32 idx = 0; idx < size; ++idx)
+	{
+		mock_data_pair_t pair = pairs[idx];
+		if((pair.data == *to_check_data) && cstr_compare(pair.name, to_check_name))
+		{
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+TEST_CASE("Hash Map struct overwrite existing key")
+{
+	SCRATCH();
+	
+	
+	mock_data_pair_t pairs [] = 
+	{
+		{"Hello1", 	{ 44, 5000 }},
+		{"Hello2",	{ 77, 9000 }},
+		{"Hello3",	{ 77, 9000 }},
+		{"Hello4",	{ 77, 9000 }},
+	};
+	    
+	hash_map_t map = hash_map_create(temp_arena, 8, 0, sizeof(mock_data), &hash_function_string);		
+	for(u8 idx = 0; idx < ArrayCount(pairs); ++idx)
+	{
+		HASH_MAP_STR_ADD(map, pairs[idx].name, &pairs[idx].data);
+	}	
+	
+	u32 idx = 0;
+	for(pair_t pair : map)
+	{
+		char* name = (char*)pair.key;
+		mock_data *data = (mock_data*)pair.data;
+		++idx;
+		bool bExists = check_exists(pairs, ArrayCount(pairs), name, data);
+		CHECK_EQ(bExists, true);
+	}
+	
+}
 
 
 TEST_SUITE_END;

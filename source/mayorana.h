@@ -334,20 +334,48 @@ arena_t* threads_arena = t_scratch.arena; \
 
 //NOTE: PART BUFFER
 
-global u32
-cstr_len(const char* _str)
+
+void 
+bytes_copy(void *d, void* s, u32 size)
 {
-	u8 *character = (u8*)_str;
-	u32 size = 0;
-	
-	while((*character) != '\0')
+	u8 *source = (u8*)s;
+	u8 *destination = (u8*)d;
+	for(u32 idx = 0; idx < size; ++idx, source++, destination++)
 	{
-		character += 1;		
-		size++;
+		*destination = *source;
+	}
+}
+
+bool
+bytes_compare(void *r, void *l, u32 size)
+{
+	u8* r_bytes = (u8*)(r);
+	u8* l_bytes = (u8*)(l);
+	
+	for(u32 idx = 0; idx < size; ++idx)
+	{
+		u8 value_r = r_bytes[idx];
+		u8 value_l = l_bytes[idx];
+		
+		if(value_r != value_l)
+		{
+			return false;
+		}
 	}
 	
-	return size;
+	return true;
 }
+
+void
+bytes_set(void *mem, u32 val, u32 size)
+{
+	u8 *bytes = (u8*)mem;
+	for(u32 idx = 0; idx < size; ++idx, bytes++)
+	{
+		*bytes = val;
+	}
+}
+
 
 ///// BUFFER FORWARD DECLARATIONS
 
@@ -488,23 +516,35 @@ print_string( struct string_t *string);
 
 
 
-global u32 
+global_f u32 
 cstr_size(const char* _str)
 {	
+	// LOOOOOVE THIS EASY AND SIMPLE AND BEAUTIFUL WONDERFUL CODE
 	if(_str == 0)
 	{
 		return 0;
 	}
 	
-	u32 size = 0;
-	char ptr = ' ';
-	while(ptr != '\0')
+	u8* at = (u8*)_str;
+	u8* start = at;
+    
+	for(;*at; ++at);
+	
+	return at - start;
+}
+
+global_f bool 
+cstr_compare(char *a, char *b)
+{
+	u32 a_size = cstr_size(a);
+	u32 b_size = cstr_size(b);
+	
+	if(a_size != b_size)
 	{
-		ptr = _str[size];	
-		++size;
+		return false;
 	}
 	
-	return size - 1;
+	return bytes_compare(a, b, a_size);
 }
 
 
@@ -1060,7 +1100,7 @@ merge_sort(list_node_t **_head_ref, list_compare_fn compare)
  For this implementation of the Hash Table, we are going to use Linear Implementation of buckets, with probing linearly when having a collision,
  and having a state flag for the buckets.
 
- They buckets will be a linear array with a fixed size, that means this is a Fix Sized Hash-Map as I use memory arenas as our main memory allocator.
+ The buckets will be a linear array with a fixed size, that means this is a Fix Sized Hash-Map as I use memory arenas as our main memory allocator.
 
 To probe( iterate with an algorithmg and compare keys to the target one ).
 
@@ -1088,74 +1128,35 @@ Probing-
 
 // NOTE: PART HASH MAP ////
 
-void 
-bytes_copy(void *d, void* s, u32 size)
-{
-	u8 *source = (u8*)s;
-	u8 *destination = (u8*)d;
-	for(u32 idx = 0; idx < size; ++idx, source++, destination++)
-	{
-		*destination = *source;
-	}
-}
-
-bool
-bytes_compare(void *r, void *l, u32 size)
-{
-	u8* r_bytes = (u8*)(r);
-	u8* l_bytes = (u8*)(l);
-	
-	for(u32 idx = 0; idx < size; ++idx)
-	{
-		u8 value_r = r_bytes[idx];
-		u8 value_l = l_bytes[idx];
-		
-		if(value_r != value_l)
-		{
-			return false;
-		}
-	}
-	
-	return true;
-}
-
-void
-bytes_set(void *mem, u32 val, u32 size)
-{
-	u8 *bytes = (u8*)mem;
-	for(u32 idx = 0; idx < size; ++idx, bytes++)
-	{
-		*bytes = val;
-	}
-}
-
-typedef enum
+enum my_enum_hash_node_state
 {
 	node_state_empty,
 	node_state_occupied,
-	node_state_stale
-		
-} my_enum_hash_node_state;
+	node_state_stale		
+};
 
+#define HASH_MAP_MAX_KEY_SIZE 64
 
-global u32 g_hash_map_max_key_size = 64;
-
-typedef struct
+struct hash_bucket_t
 {	
 	void *key;
 	void *data;
 	
 	u32 key_size;
-	my_enum_hash_node_state state;
-	
-} hash_bucket_t;
+	my_enum_hash_node_state state;	
+};
 
 typedef u32 (*hash_function_signature)(void* /*key*/, u32 /*key size*/);
 
-
-typedef struct
+// TODO: add this to the hash_bucket_t
+struct pair_t
 {
-	arena_t *arena;
+	void *key;
+	void *data;
+};
+
+struct hash_map_t
+{
 	hash_bucket_t *buckets;
 	void* keys_chunk;
 	void* data_chunk;
@@ -1164,25 +1165,69 @@ typedef struct
 	u32 size;
 	u32 data_size;
 	u32 key_size;
-    
-} hash_map_t;
-
+	
+	
+	
+	struct iterator_t
+	{
+		hash_bucket_t *buckets;
+		u32 bucket_idx;
+		u32 buckets_num;
+		
+		bool operator !=(iterator_t const& other) const
+		{
+			return bucket_idx != other.bucket_idx;
+		}
+		
+		iterator_t& operator++()
+		{				
+			while((bucket_idx < buckets_num) && (buckets[bucket_idx].state != node_state_occupied))
+			{
+				bucket_idx++;
+			}
+			
+			return *this;
+		}
+		
+		// O - E - O -O - E  -> 5
+		pair_t operator*()
+		{
+			pair_t result;
+			result.key = buckets[bucket_idx].key;
+			result.data = buckets[bucket_idx].data;
+			
+			bucket_idx++;
+			
+			return result;
+		}				
+	};
+	
+	iterator_t begin()
+	{ 
+		iterator_t it = { buckets, 0, size };
+		return it;
+	}
+	iterator_t end()
+	{ 		
+		iterator_t it = { buckets, size, size };
+		return it;
+	}
+	
+};
 
 internal_f u32
 hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, void *_data);
-
 
 global_f hash_map_t
 hash_map_create(arena_t *_arena, u32 _size, u32 _key_size, u32 _data_size, hash_function_signature _hash_function)
 {
 	hash_map_t result;
 	
-	result.arena = _arena;
 	result.size = _size;
 	result.data_size = _data_size;	
 	result.key_size = _key_size != 0 
 		? _key_size 
-		: g_hash_map_max_key_size;
+		: HASH_MAP_MAX_KEY_SIZE;
 	
 	
 	// key chunk memory
@@ -1278,6 +1323,8 @@ hash_map_find_internal(hash_map_t *_map, void *_key, u32 _key_size, u32 *out_buc
 						}
 					}
 					break;
+                    
+                    default:break;
 				}
 				
 				++idx;	
@@ -1471,6 +1518,8 @@ hash_map_probe(hash_map_t *_hash_map, u32 _from_idx, void *_key, u32 _key_size, 
 	return _from_idx;
 }
 
+
+
 // NOTE: MACROS
 
 
@@ -1501,7 +1550,7 @@ hash_map_add(&(map),(void*)&GLUE(_hash_key_, __LINE__), sizeof(key_type), (void*
 #define HASH_MAP_STR_ADD(map, key, data) \
 do { \
 char* GLUE(_to_add_key, __LINE__) = (char*)key; \
-u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1; \
+u32 GLUE(_to_add_size, __LINE__) = cstr_size(GLUE(_to_add_key, __LINE__)) + 1; \
 hash_map_add(&map, GLUE(_to_add_key, __LINE__), GLUE(_to_add_size, __LINE__), (void*)data); \
 }while(0)
 
@@ -1517,13 +1566,13 @@ out_ptr = (data_type*)hash_map_find(&map, &GLUE(hashed_key, key), sizeof(key_typ
 #define HASH_MAP_STR_FIND(map, data_type, key, out_ptr) \
 do{ \
 char* GLUE(_to_add_key, __LINE__) = (char*)key; \
-u32 GLUE(_to_add_size, __LINE__) = cstr_len(GLUE(_to_add_key, __LINE__)) + 1;		\
+u32 GLUE(_to_add_size, __LINE__) = cstr_size(GLUE(_to_add_key, __LINE__)) + 1;		\
 data_type* GLUE(_to_find_data, __LINE__) = (data_type*)out_ptr; \
 out_ptr = (data_type*)hash_map_find(&map, GLUE(_to_add_key, __LINE__), GLUE(_to_add_size, __LINE__)); \
 }while(0)
 
 #define HASH_MAP_FIND_STRING(map, buffer) \
-hash_map_find(&map, buffer, cstr_len(buffer) + 1);
+hash_map_find(&map, buffer, cstr_size(buffer) + 1);
 
 // REMOVE
 #define HASH_MAP_REMOVE(map, key) \
@@ -1532,7 +1581,8 @@ hash_map_remove(&map, &key, sizeof(key))
 
 // HASH FUNCTIONS
 
-global_f u32 
+
+global_f u32
 hash_function_string(void* key, u32 key_size)
 {
 	string_t* string = (string_t*)key;
