@@ -1,6 +1,14 @@
 /* date = April 21st 2025 11:58 am */
 
 
+/////////////////////////////////
+// Reflection defined macros for mayorana.h
+#define MY_CLASS(...)
+#define MY_STRUCT(...)
+#define MY_ENUM(...)
+#define MY_PROPERTY(...)
+///////////////////////////////////
+
 // This framework is written with the prupose of having a centralized API for my personal use and to practice
 // the application of the philosophy that less is more and with the simplicity in mind.
 
@@ -357,9 +365,15 @@ global_f void buffer_copy_deep(const struct buffer_t *_src, struct buffer_t *_de
  *  Normally a buffer is used when writing some bytes to it, so we would know beforehand how many bytes we would need.
  *  But if we would use this for an array or a string, we would need to set the mem to 0 when using.
  **/
+
+
+MY_STRUCT(CustomPrinter)
 struct buffer_t
 {
-    u8* data;
+	MY_PROPERTY()
+		u8* data;
+	
+	MY_PROPERTY()
     u64 size;
 	
 #ifdef __cplusplus
@@ -498,9 +512,13 @@ cstr_size(const char* _str)
 //global_f string_t string_copy_deep(arena_t *_arena, const string_t *_other);
 
 
+MY_STRUCT(CustomPrinter)
 struct string_t
 {
-    buffer_t buffer;
+	MY_PROPERTY()
+		buffer_t buffer;
+	
+	MY_PROPERTY()
     u32 size;
 	
 #ifdef __cplusplus	
@@ -1932,4 +1950,98 @@ buffer_t read_file_and_add_null_at_end(arena_t *_arena, char *_file_name)
 	}
 	
 	return result;
+}
+
+
+
+// PART: REFLECTION
+
+// Unsigned
+
+void printer_u8(char* name, void* data)
+{
+    u8* value = (u8*)data;
+    printf("%s: %u\n", name, *value);
+}
+
+void printer_u16(char* name, void* data)
+{
+    u16* value = (u16*)data;
+    printf("%s: %u\n", name, *value);
+}
+
+void printer_u32(char* name, void* data)
+{
+    u32* value = (u32*)data;
+    printf("%s: %u\n", name, *value);
+}
+
+void printer_u64(char* name, void* data)
+{
+    u64* value = (u64*)data;
+    printf("%s: %llu\n", name, *value);
+}
+
+
+// Signed
+
+void printer_s8(char* name, void* data)
+{
+    s8* value = (s8*)data;
+    printf("%s: %d\n", name, *value);
+}
+
+void printer_s16(char* name, void* data)
+{
+    s16* value = (s16*)data;
+    printf("%s: %d\n", name, *value);
+}
+
+void printer_s32(char* name, void* data)
+{
+    s32* value = (s32*)data;
+    printf("%s: %d\n", name, *value);
+}
+
+void printer_s64(char* name, void* data)
+{
+    s64* value = (s64*)data;
+    printf("%s: %lld\n", name, *value);
+}
+
+
+// Floating
+
+void printer_f32(char* name, void* data)
+{
+    f32* value = (f32*)data;
+    printf("%s: %f\n", name, *value);
+}
+
+void printer_f64(char* name, void* data)
+{
+    f64* value = (f64*)data;
+    printf("%s: %f\n", name, *value);
+}
+
+
+// Bool
+
+void printer_bool(char* name, void* data)
+{
+    bool* value = (bool*)data;
+    printf("%s: %s\n", name, *value ? "true" : "false");
+}
+
+
+void printer_string_t(char* name, void* data)
+{
+    string_t* value = (string_t*)data;
+    printf("%s: %s\n", name, *(*value));
+}
+
+void printer_buffer_t(char* name, void* data)
+{
+    buffer_t* value = (buffer_t*)data;
+    printf("%s: size=%llu\n", name, value->size);
 }
