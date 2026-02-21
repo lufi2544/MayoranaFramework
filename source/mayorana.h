@@ -1627,7 +1627,8 @@ std::remove_reference_t<T>&& Move(T& val)
 #include <functional>
 //typedef void(*thread_function_t)(void);
 
-typedef std::function<void()> thread_function_t;
+typedef void (*thread_function_t)(void*);
+//typedef void *thread_function_t()
 
 struct thread_args
 {
@@ -1636,31 +1637,30 @@ struct thread_args
 	thread_function_t user_function;
 };
 
-// We are supposed to pass-in this but the lambda should be allocated in the thread_arena.
-void lambda_executor(void *lambda_ptr)
-{
-	thread_function_t *fn = (thread_function_t*)lambda_ptr;
-	(*fn)();
-}
-
 DWORD thread_main(LPVOID _data)
 {
 	thread_args* args = (thread_args*)_data;	
 	if (!args->thread_name.is_empty())
-	{
-		
-#ifdef _WIN32
+	{		
+#ifdef _WINDOWS
 		wchar_t buffer[256] = {};  // fixed buffer, adjust size as needed
 		int count = MultiByteToWideChar(CP_UTF8, 0, STRING_CONTENT(args->thread_name), -1, buffer, 256);
 		SetThreadDescription(GetCurrentThread(), buffer);
-#endif // _WIN32
-		
+#endif // _WINDOWS		
 	}
 	
-	args->user_function();	
+	args->user_function(args->user_data);	
 	
 	return 0;
 }
+
+class mythread_t;
+
+global_f void
+thread_end(mythread_t *thread);
+
+global_f void
+thread_start(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function);
 
 class mythread_t
 {
@@ -1669,14 +1669,6 @@ class mythread_t
 	mythread_t(mythread_t const&) = delete;	
 	mythread_t& operator=(mythread_t const&) = delete;
 	
-	mythread_t(arena_t* _arena, string_t _name, thread_function_t _user_function)
-	{
-		arena = _arena;
-		thread_function = _user_function;
-		name = _name;		
-		
-		start();
-	}
 	
 	mythread_t(mythread_t&& rvalue)
 	{		
@@ -1701,49 +1693,59 @@ class mythread_t
 		return *this;
 	}
 	
-	~mythread_t()
-	{
-		if(handle)
-		{
-			CloseHandle(handle);
-			printf("Closing Handle \n");
-			handle = 0;
-		}
-        
-	}
-	
-	void start()
-	{
-		if (!thread_function)
-		{
-			MAYORANA_LOG("There is no function assocaited with this thread, check it...");
-		}
-		
-		thread_args* args = (thread_args*)push_size(arena, sizeof(thread_args));		
-		args->user_function = thread_function;
-		args->thread_name = name;
-		
-		LPDWORD this_id = 0;
-		handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
-		if(handle != 0)
-		{
-			id = this_id;
-		}
-	}
-	
 	void join()
 	{
 		WaitForSingleObject(handle, INFINITE);
 	}
 	
 	
+#ifdef _WINDOWS
 	LPDWORD id = 0;
 	HANDLE handle = 0;
+#endif
 	string_t name;
 	
 	thread_function_t thread_function;	
 	arena_t *arena = 0;
 };
+
+
+
+global_f void
+thread_start(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function)
+{
+	thread->arena = _arena;
+	thread->thread_function = _user_function;
+	thread->name = _name;
+	
+	if (!thread->thread_function)
+	{
+		MAYORANA_LOG("There is no function assocaited with this thread, check it...");
+	}
+	
+	thread_args* args = (thread_args*)push_size(thread->arena, sizeof(thread_args));		
+	args->user_function = thread->thread_function;
+	args->thread_name = thread->name;
+	
+	LPDWORD this_id = 0;
+	thread->handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
+	if(thread->handle != 0)
+	{
+		thread->id = this_id;
+	}
+}
+
+
+global_f void
+thread_end(mythread_t *thread)
+{	
+	if(thread->handle)
+	{
+		CloseHandle(thread->handle);
+		printf("Closing Handle \n");
+		thread->handle = 0;
+	}
+}
 
 typedef std::thread mthread_t;
 
@@ -1873,9 +1875,10 @@ class scoped_lock_t
 
 volatile bool bJobsActive = true;
 
-void JobLoop(class job_manager_t *_manager);
+global_f void 
+JobLoop(void *data);
 
-typedef std::function<void()> job_t;
+typedef void (*job_t)(void);
 
 struct job_node_t
 {
@@ -1904,7 +1907,11 @@ class job_manager_t
 		for(u32 i = 0; i < workers_num; ++i)
 		{
 			string_t name = STRING_C(_arena, "worker%i", i);
-			workers[i] = mythread_t(_arena,  name, [this](){ JobLoop(this); });			
+			
+			mythread_t new_thread;
+			thread_start(&new_thread, _arena,  name, JobLoop);
+			
+			workers[i] = Move(new_thread);
 		}
 	}
     
@@ -1946,8 +1953,11 @@ class job_manager_t
 	
 };
 
-void JobLoop(class job_manager_t *_manager)
+global_f void 
+JobLoop(void *data)
 {
+	job_manager_t *_manager = (job_manager_t*)data;
+	
 	while(bJobsActive)
 	{
 		MemoryBarrier();
