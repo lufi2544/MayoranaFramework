@@ -1621,14 +1621,12 @@ std::remove_reference_t<T>&& Move(T& val)
 }
 
 /////////////////////////
-//// Multi-Threading
+//// PART: Multi-Threading
 /////////////////////////
 
 #include <functional>
-//typedef void(*thread_function_t)(void);
 
 typedef void (*thread_function_t)(void*);
-//typedef void *thread_function_t()
 
 struct thread_args
 {
@@ -1645,7 +1643,7 @@ DWORD thread_main(LPVOID _data)
 #ifdef _WINDOWS
 		wchar_t buffer[256] = {};  // fixed buffer, adjust size as needed
 		int count = MultiByteToWideChar(CP_UTF8, 0, STRING_CONTENT(args->thread_name), -1, buffer, 256);
-		SetThreadDescription(GetCurrentThread(), buffer);
+		HRESULT hr = SetThreadDescription(GetCurrentThread(), buffer);
 #endif // _WINDOWS		
 	}
 	
@@ -1657,12 +1655,10 @@ DWORD thread_main(LPVOID _data)
 class mythread_t;
 
 global_f void
-end_thread(mythread_t *thread);
+end_thread(mythread_t *thread, bool b_should_join);
 
 global_f void
 start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function, void* _user_data);
-
-
 
 class mythread_t
 {
@@ -1711,8 +1707,6 @@ class mythread_t
 	arena_t *arena = 0;
 };
 
-
-
 global_f void
 start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function, void* _user_data)
 {
@@ -1733,15 +1727,20 @@ start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_functio
 	LPDWORD this_id = 0;
 	thread->handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
 	if(thread->handle != 0)
-	{		
+	{
 		thread->id = this_id;
 	}
 }
 
 
 global_f void
-end_thread(mythread_t *thread)
+end_thread(mythread_t *thread, bool b_should_join)
 {	
+	if(b_should_join)
+	{
+		thread->join();
+	}
+	
 	if(thread->handle)
 	{
 		CloseHandle(thread->handle);
@@ -1995,8 +1994,7 @@ JobManagerShutDown(job_manager_t *manager)
 	
 	for (u32 i = 0; i < manager->workers_num; ++i)
     {
-        manager->workers[i].join();
-        end_thread(&manager->workers[i]);
+        end_thread(&manager->workers[i], true);
     }
 }
 
@@ -2042,7 +2040,8 @@ JobLoop(void *data)
 #include <stdio.h>
 
 
-buffer_t read_file_and_add_null_at_end(arena_t *_arena, char *_file_name)
+global_f buffer_t 
+read_file_and_add_null_at_end(arena_t *_arena, char *_file_name)
 {
 	buffer_t result;
 	FILE *file = fopen(_file_name, "r");

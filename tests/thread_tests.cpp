@@ -49,8 +49,7 @@ TEST_CASE("mythread_t multiple threads")
 	
     for (int i = 0; i < count; ++i)
     {
-        threads[i].join();
-        end_thread(&threads[i]);
+        end_thread(&threads[i], true);
     }
 	
     for (int i = 0; i < count; ++i)
