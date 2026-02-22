@@ -1657,10 +1657,12 @@ DWORD thread_main(LPVOID _data)
 class mythread_t;
 
 global_f void
-thread_end(mythread_t *thread);
+end_thread(mythread_t *thread);
 
 global_f void
-thread_start(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function);
+start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function, void* _user_data);
+
+
 
 class mythread_t
 {
@@ -1712,37 +1714,38 @@ class mythread_t
 
 
 global_f void
-thread_start(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function)
+start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_function_t _user_function, void* _user_data)
 {
 	thread->arena = _arena;
 	thread->thread_function = _user_function;
-	thread->name = _name;
+	thread->name = _name;	
 	
 	if (!thread->thread_function)
 	{
 		MAYORANA_LOG("There is no function assocaited with this thread, check it...");
 	}
 	
-	thread_args* args = (thread_args*)push_size(thread->arena, sizeof(thread_args));		
+	thread_args* args = (thread_args*)push_size(thread->arena, sizeof(thread_args));
 	args->user_function = thread->thread_function;
 	args->thread_name = thread->name;
+	args->user_data = _user_data;
 	
 	LPDWORD this_id = 0;
 	thread->handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
 	if(thread->handle != 0)
-	{
+	{		
 		thread->id = this_id;
 	}
 }
 
 
 global_f void
-thread_end(mythread_t *thread)
+end_thread(mythread_t *thread)
 {	
 	if(thread->handle)
 	{
 		CloseHandle(thread->handle);
-		printf("Closing Handle \n");
+		//printf("Closing Finishing Thread \n");
 		thread->handle = 0;
 	}
 }
@@ -1878,11 +1881,12 @@ volatile bool bJobsActive = true;
 global_f void 
 JobLoop(void *data);
 
-typedef void (*job_t)(void);
+typedef void (*job_t)(void*);
 
 struct job_node_t
 {
 	job_t job;
+	void* user_data;
 	s32 id = -1;
 };
 
@@ -1909,30 +1913,48 @@ class job_manager_t
 			string_t name = STRING_C(_arena, "worker%i", i);
 			
 			mythread_t new_thread;
-			thread_start(&new_thread, _arena,  name, JobLoop);
+			start_thread(&new_thread, _arena,  name, JobLoop, this);
 			
 			workers[i] = Move(new_thread);
 		}
 	}
     
-	void push_job(job_t _job)
-	{		
-		job_node_t node;
-		node.job = _job;
-		node.id = tail;
-		jobs[tail] = node;
-        
-		InterlockedIncrement(&tail);
-		InterlockedIncrement(&requested_jobs);
+	void PushJob(job_t _job, void* user_data)
+	{	
+		
+		u32 current_tail = tail;
+		u32 current_head = head;
+		
+		if(current_tail - current_head >= max_jobs)
+		{
+			while(tail - head >= max_jobs)
+			{				
+				//std::this_thread::yield();
+			}
+			
+			current_tail = tail;
+		}
+		
+		u32 index = current_tail % max_jobs;
+		
+		jobs[index].job = _job;
+		jobs[index].user_data = user_data;
+		jobs[index].id = current_tail;
+		
+		MemoryBarrier(); // ensuring job is visible before tail moves, since the other way around could cause 
+		// a thread to take a job that is empty.
+		
+		tail = current_tail + 1;
+		InterlockedIncrement(&requested_jobs);		
 	}
 	
-	void complete_job(job_node_t *_job)
+	void CompleteJob(job_node_t *_job)
 	{
-		printf("worker %i has finished the job \n", _job->id);
+		//printf("worker %i has finished the job \n", _job->id);
 		InterlockedIncrement(&completed_jobs);
 	}
 	
-	bool is_queue_empty()
+	bool IsQueueEmpty()
 	{
 		return requested_jobs == completed_jobs && tail == head;
 	}
@@ -1953,30 +1975,61 @@ class job_manager_t
 	
 };
 
+
+global_f void
+ResetJobManager(job_manager_t *manager)
+{
+	
+}
+
+global_f bool
+IsJobManagerBusy(job_manager_t *manager)
+{
+	return manager->completed_jobs != manager->requested_jobs;
+}
+
+global_f void
+JobManagerShutDown(job_manager_t *manager)
+{
+	bJobsActive = false;
+	
+	for (u32 i = 0; i < manager->workers_num; ++i)
+    {
+        manager->workers[i].join();
+        end_thread(&manager->workers[i]);
+    }
+}
+
 global_f void 
 JobLoop(void *data)
 {
 	job_manager_t *_manager = (job_manager_t*)data;
 	
-	while(bJobsActive)
+	while (bJobsActive)
 	{
-		MemoryBarrier();
-		if(!_manager->is_queue_empty())
+		u32 current_head = _manager->head;
+		u32 current_tail = _manager->tail;
+		
+		// TODO: what if we wrapp around u32
+		if (current_head >= current_tail)
 		{
-			job_node_t* job_node = &_manager->jobs[_manager->head];
-			
-			/// TODO investigate why this crashed and rely on the tail and head.
-			if(job_node->job)
-			{
-				InterlockedIncrement(&_manager->head);
-				job_node->job();
-				_manager->complete_job(job_node);
-			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			continue;
 		}
-		else
+		
+		// 2 threads see that there is a job at the idx 2 and here we compare if when getting the head, this worker still
+		// has the same head, if not, then that means another thread has taken it.
+		if (InterlockedCompareExchange(
+									   &_manager->head, // this 
+									   current_head + 1, // change to this if comparison is right
+									   current_head) /* comparing to this */ == current_head)
 		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		}				
+			u32 wrapped = current_head % _manager->max_jobs;
+			job_node_t* job_node = &_manager->jobs[wrapped];
+			
+			job_node->job(job_node->user_data);
+			_manager->CompleteJob(job_node);
+		}
 	}
 }
 
