@@ -292,6 +292,35 @@ _push_size(arena_t *_arena, u64 _size)
 }
 
 
+global_f arena_t 
+push_arena(arena_t *arena, u32 requested)
+{
+	arena_t result;
+	result.data = 0;
+	result.used = 0;
+	result.size = 0;
+	result.temp_count = 0;
+	
+	if(arena->used + requested < arena->size)
+	{
+		result.data = arena->data + (arena->size - requested);
+		result.used = 0;
+		result.size = requested;
+		
+		arena->size = arena->size - requested;		
+		
+		MAYORANA_LOG("Pushing arena: Old Arena now is -> Size: %llu, New Arena -> Size: %llu", arena->size, result.size);
+	}	
+	
+	return result;
+}
+
+global_f void 
+reset_arena(arena_t *arena)
+{
+	arena->used = 0;
+}
+
 #define push_struct(arena, type) (type*)_push_size(arena, sizeof(type))
 #define push_array(arena, count, type) (type*)_push_size(arena, (count) * sizeof(type))
 #define push_size(arena, size) _push_size(arena, size)
@@ -309,6 +338,11 @@ arena_t* temp_arena = scratch.arena; \
 #define SCRATCH() \
 scratch_t scratch;       \
 scratch_begin(&scratch, &g_memory.transient);    \
+arena_t* temp_arena = scratch.arena; \
+
+#define SCRATCH_ARENA(a) \
+scratch_t scratch;       \
+scratch_begin(&scratch, a);    \
 arena_t* temp_arena = scratch.arena; \
 
 
@@ -969,14 +1003,8 @@ list_add_element(arena_t *_arena, list_t *_list, void* _data, u32 _size)
 		{
 			return 0;
 		}
-		
-		// note: (juanes.rayo): Moving this to a .c file to use as raw copy of bytes.
-		u8 *data_as_bytes = (u8*)_data;
-		u8 *node_data_as_bytes = (u8*)node_data;
-		for(u32 i = 0; i < _size; ++i)
-		{
-			node_data_as_bytes[i] = data_as_bytes[i];
-		}
+				
+		bytes_copy(node_data, _data, _size);
 		
 		if(node)
 		{
