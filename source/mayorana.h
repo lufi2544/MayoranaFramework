@@ -48,6 +48,8 @@ typedef double f64;
 
 #define global static
 #define global_f static
+#define callback_f static
+#define forward_f static
 #define local static
 #define internal_f static
 
@@ -680,10 +682,16 @@ struct string_t
         string_push_char(this, c);
     }
 	
+	
+	char* to_cstr() const
+	{
+		return (char*)buffer.data;
+	}
+	
     // Optional: Convert to const char*
     inline const char* operator *() const 
 	{
-        return (const char*)buffer.data;
+		return to_cstr();
     }
 	
 	bool contains(const char* b)
@@ -700,6 +708,7 @@ struct string_t
 	{
 		print_string(this);
 	}
+	
     
 #endif // __cplusplus
 	
@@ -1575,6 +1584,13 @@ data_type GLUE(_hash_data_, __LINE__) = (data_type)(data);              \
 hash_map_add(&(map),(void*)&GLUE(_hash_key_, __LINE__), sizeof(key_type), (void*)&GLUE(_hash_data_, __LINE__)); \
 } while (0)
 
+#define HASH_MAP_ADD_GET(map, key_type, data_type, key, data, out)                   \
+do {                                                                        \
+key_type  GLUE(_hash_key_, __LINE__)  = (key_type)(key);                \
+data_type GLUE(_hash_data_, __LINE__) = (data_type)(data);              \
+out = (data_type*)hash_map_add(&(map),(void*)&GLUE(_hash_key_, __LINE__), sizeof(key_type), (void*)&GLUE(_hash_data_, __LINE__)); \
+} while (0)
+
 #define HASH_MAP_STR_ADD(map, key, data) \
 do { \
 char* GLUE(_to_add_key, __LINE__) = (char*)key; \
@@ -1622,6 +1638,15 @@ hash_function_c_string(void* key, u32 key_size)
 {
 	char* buff = (char*)key;
 	return cstr_size(buff);
+}
+
+
+global_f u32
+hash_function_u32(void* key, u32 key_size)
+{
+	u32* value = (u32*)key;
+	
+	return *value;
 }
 
 // NOTE: PART HASH MAP END
@@ -1740,7 +1765,7 @@ start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_functio
 {
 	thread->arena = _arena;
 	thread->thread_function = _user_function;
-	thread->name = _name;	
+	thread->name = _name;
 	
 	if (!thread->thread_function)
 	{
@@ -2172,7 +2197,6 @@ void printer_bool(char* name, void* data)
     bool* value = (bool*)data;
     printf("%s: %s\n", name, *value ? "true" : "false");
 }
-
 
 void printer_string_t(char* name, void* data)
 {
