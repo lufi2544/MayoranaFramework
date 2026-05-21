@@ -75,6 +75,14 @@ typedef double f64;
 #include "Windows.h"
 #endif // _WIN32
 
+#ifdef __linux__
+#include <sys/mman.h>
+#include <unistd.h>
+#include <cstring>
+#include <cstdarg>
+#define _LINUX
+#endif // __linux__
+
 #define Byte(v) v
 #define Kilobyte(v) 1024 * Byte(v)
 #define Megabyte(v) 1024 * Kilobyte(v)
@@ -151,9 +159,17 @@ mayorana_memory_init()
 	g_memory.transient.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_TRANSIENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.permanent.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_PERMANENT_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	g_memory.threads.data = (u8*)VirtualAlloc(0, MAYORANA_MEMORY_THREAD_ARENA_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	
+
 	MAYORANA_LOG("-- Memory Init Windows --");
 #endif // _WINDOWS
+
+#ifdef _LINUX
+	g_memory.transient.data = (u8*)mmap(0, MAYORANA_MEMORY_TRANSIENT_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	g_memory.permanent.data = (u8*)mmap(0, MAYORANA_MEMORY_PERMANENT_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	g_memory.threads.data   = (u8*)mmap(0, MAYORANA_MEMORY_THREAD_ARENA_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+	MAYORANA_LOG("-- Memory Init Linux --");
+#endif // _LINUX
 	
 	
 	g_memory.transient.size = MAYORANA_MEMORY_TRANSIENT_SIZE;
@@ -178,18 +194,23 @@ mayorana_shutdown()
 		VirtualFree(g_memory.transient.data, 0, MEM_RELEASE);
 	}
     
-#elif defined(_APPLE)
-    
-    if (munmap(g_memory.permanent.data, g_memory.permanent.size) != 0) 
-    {
-        MAYORANA_LOG("Error: mmap failed for permanent memory");
-    }
-    
-    if (munmap(g_memory.transient.data, g_memory.transient.size) != 0) 
-    {
-        MAYORANA_LOG("Error: mmap failed for transient memory");
-    }
-    
+#elif defined(_APPLE) || defined(_LINUX)
+
+	if (munmap(g_memory.permanent.data, g_memory.permanent.size) != 0)
+	{
+		MAYORANA_LOG("Error: munmap failed for permanent memory");
+	}
+
+	if (munmap(g_memory.transient.data, g_memory.transient.size) != 0)
+	{
+		MAYORANA_LOG("Error: munmap failed for transient memory");
+	}
+
+	if (munmap(g_memory.threads.data, g_memory.threads.size) != 0)
+	{
+		MAYORANA_LOG("Error: munmap failed for threads memory");
+	}
+
 #else
 #pragma error "Platform not implemented for Mayorana Shutdown"
 #endif // PLATFORMS IMPLEMENTATION
@@ -1655,16 +1676,22 @@ hash_function_u32(void* key, u32 key_size)
 // MAYORANA C++ API
 #ifdef __cplusplus
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_LINUX)
 
+#ifdef _WINDOWS
 #include <thread>
 #include <mutex>
 #include <shared_mutex>
-
 #ifdef _WIN32
 #include <processthreadsapi.h>
-#endif // __WIN32
+#endif // _WIN32
+#endif // _WINDOWS
 
+#ifdef _LINUX
+#include <pthread.h>
+#endif // _LINUX
+
+#include <utility>
 
 // Converts an LValue Ref to an RValue Ref.
 template<typename T>
@@ -1688,21 +1715,29 @@ struct thread_args
 	thread_function_t user_function;
 };
 
-DWORD thread_main(LPVOID _data)
-{
-	thread_args* args = (thread_args*)_data;	
-	if (!args->thread_name.is_empty())
-	{		
 #ifdef _WINDOWS
-		wchar_t buffer[256] = {};  // fixed buffer, adjust size as needed
+DWORD thread_main(LPVOID _data)
+#elif defined(_LINUX)
+void* thread_main(void* _data)
+#endif
+{
+	thread_args* args = (thread_args*)_data;
+	if (!args->thread_name.is_empty())
+	{
+#ifdef _WINDOWS
+		wchar_t buffer[256] = {};
 		int count = MultiByteToWideChar(CP_UTF8, 0, STRING_CONTENT(args->thread_name), -1, buffer, 256);
 		HRESULT hr = SetThreadDescription(GetCurrentThread(), buffer);
-#endif // _WINDOWS		
+#endif // _WINDOWS
 	}
-	
-	args->user_function(args->user_data);	
-	
+
+	args->user_function(args->user_data);
+
+#ifdef _WINDOWS
 	return 0;
+#elif defined(_LINUX)
+	return NULL;
+#endif
 }
 
 class mythread_t;
@@ -1731,28 +1766,34 @@ class mythread_t
 		arena = rvalue.arena;
 		thread_function = rvalue.thread_function;
 		name = rvalue.name;
-		id = rvalue.id;
 		handle = rvalue.handle;
-		
-		
+#ifdef _WINDOWS
+		id = rvalue.id;
+		rvalue.id = 0;
+#endif
+
 		rvalue.arena = 0;
 		rvalue.thread_function = 0;
 		rvalue.name = string_t();
 		rvalue.handle = 0;
-		rvalue.id = 0;
 		
 		return *this;
 	}
 	
 	void join()
 	{
+#ifdef _WINDOWS
 		WaitForSingleObject(handle, INFINITE);
+#elif defined(_LINUX)
+		pthread_join(handle, NULL);
+#endif
 	}
-	
-	
+
 #ifdef _WINDOWS
 	LPDWORD id = 0;
 	HANDLE handle = 0;
+#elif defined(_LINUX)
+	pthread_t handle = 0;
 #endif
 	string_t name;
 	
@@ -1777,12 +1818,16 @@ start_thread(mythread_t *thread, arena_t* _arena, string_t _name, thread_functio
 	args->thread_name = thread->name;
 	args->user_data = _user_data;
 	
+#ifdef _WINDOWS
 	LPDWORD this_id = 0;
 	thread->handle = CreateThread(0, 0, &thread_main, args, 0, this_id);
 	if(thread->handle != 0)
 	{
 		thread->id = this_id;
 	}
+#elif defined(_LINUX)
+	pthread_create(&thread->handle, NULL, thread_main, args);
+#endif
 }
 
 
@@ -1794,14 +1839,22 @@ end_thread(mythread_t *thread, bool b_should_join)
 		thread->join();
 	}
 	
+#ifdef _WINDOWS
 	if(thread->handle)
 	{
 		CloseHandle(thread->handle);
-		//printf("Closing Finishing Thread \n");
 		thread->handle = 0;
 	}
+#elif defined(_LINUX)
+	if(!b_should_join)
+	{
+		pthread_detach(thread->handle);
+	}
+	thread->handle = 0;
+#endif
 }
 
+#ifdef _WINDOWS
 typedef std::thread mthread_t;
 
 #define THREAD(name, ...) mthread_t name(__VA_ARGS__)
@@ -1836,6 +1889,7 @@ class thread_guard_t
 /////// MUTUAL EXCLUSIVE OBJECT ///////////
 
 typedef std::mutex mutex_t;
+#endif // _WINDOWS
 
 
 /**
@@ -1849,39 +1903,61 @@ class critical_section_t
     public:
 	critical_section_t()
 	{
+#ifdef _WINDOWS
 		InitializeCriticalSection(&this_section);
+#elif defined(_LINUX)
+		pthread_mutex_init(&this_section, NULL);
+#endif
 	};
-	
+
 	critical_section_t(critical_section_t const&) = delete;
 	critical_section_t& operator =(critical_section_t const&) = delete;
 	critical_section_t(critical_section_t&& _rvalue) = delete;
-	
+
 	~critical_section_t()
 	{
+#ifdef _WINDOWS
 		DeleteCriticalSection(&this_section);
+#elif defined(_LINUX)
+		pthread_mutex_destroy(&this_section);
+#endif
 	}
-	
+
 	void lock()
 	{
+#ifdef _WINDOWS
 		EnterCriticalSection(&this_section);
+#elif defined(_LINUX)
+		pthread_mutex_lock(&this_section);
+#endif
 	}
-	
+
 	// True if the lock has been acquired.
 	bool try_lock()
 	{
+#ifdef _WINDOWS
 		return !(TryEnterCriticalSection(&this_section) == 0);
+#elif defined(_LINUX)
+		return pthread_mutex_trylock(&this_section) == 0;
+#endif
 	}
-	
+
 	void unlock()
 	{
+#ifdef _WINDOWS
 		LeaveCriticalSection(&this_section);
+#elif defined(_LINUX)
+		pthread_mutex_unlock(&this_section);
+#endif
 	}
-	
+
     private:
-	
-#ifdef _WIN32
+
+#ifdef _WINDOWS
 	CRITICAL_SECTION this_section;
-#endif // _WIN32
+#elif defined(_LINUX)
+	pthread_mutex_t this_section;
+#endif
 };
 
 
@@ -1913,6 +1989,39 @@ class scoped_lock_t
 	critical_section_t *this_section;
 };
 
+
+///////////////////////////////////
+////////// Platform Atomics ///////
+
+global_f void
+MY_MemoryBarrier()
+{
+#ifdef _WINDOWS
+	MemoryBarrier();
+#elif defined(_LINUX)
+	__sync_synchronize();
+#endif
+}
+
+global_f s32
+MY_InterlockedIncrement(volatile u32* value)
+{
+#ifdef _WINDOWS
+	return (s32)InterlockedIncrement((volatile LONG*)value);
+#elif defined(_LINUX)
+	return (s32)__sync_add_and_fetch(value, 1);
+#endif
+}
+
+global_f s32
+MY_InterlockedCompareExchange(volatile u32* dest, u32 exchange, u32 comparand)
+{
+#ifdef _WINDOWS
+	return (s32)InterlockedCompareExchange((volatile LONG*)dest, (LONG)exchange, (LONG)comparand);
+#elif defined(_LINUX)
+	return (s32)__sync_val_compare_and_swap(dest, comparand, exchange);
+#endif
+}
 
 ///////////////////////////////////
 ////////// Task Manager //////////
@@ -1993,17 +2102,17 @@ class job_manager_t
 		jobs[index].user_data = user_data;
 		jobs[index].id = current_tail;
 		
-		MemoryBarrier(); // ensuring job is visible before tail moves, since the other way around could cause 
+		MY_MemoryBarrier(); // ensuring job is visible before tail moves, since the other way around could cause
 		// a thread to take a job that is empty.
-		
+
 		tail = current_tail + 1;
-		InterlockedIncrement(&requested_jobs);		
+		MY_InterlockedIncrement(&requested_jobs);
 	}
-	
+
 	void CompleteJob(job_node_t *_job)
 	{
 		//printf("worker %i has finished the job \n", _job->id);
-		InterlockedIncrement(&completed_jobs);
+		MY_InterlockedIncrement(&completed_jobs);
 	}
 	
 	bool IsQueueEmpty()
@@ -2064,16 +2173,20 @@ JobLoop(void *data)
 		// TODO: what if we wrapp around u32
 		if (current_head >= current_tail)
 		{
+#ifdef _WINDOWS
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+#elif defined(_LINUX)
+			usleep(1000);
+#endif
 			continue;
 		}
-		
+
 		// 2 threads see that there is a job at the idx 2 and here we compare if when getting the head, this worker still
 		// has the same head, if not, then that means another thread has taken it.
-		if (InterlockedCompareExchange(
-									   &_manager->head, // this 
+		if (MY_InterlockedCompareExchange(
+									   &_manager->head, // this
 									   current_head + 1, // change to this if comparison is right
-									   current_head) /* comparing to this */ == current_head)
+									   current_head) /* comparing to this */ == (s32)current_head)
 		{
 			u32 wrapped = current_head % _manager->max_jobs;
 			job_node_t* job_node = &_manager->jobs[wrapped];
@@ -2084,7 +2197,7 @@ JobLoop(void *data)
 	}
 }
 
-#endif // _WINDOWS
+#endif // _WINDOWS || _LINUX
 #endif // __cplusplus
 
 
